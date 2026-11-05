@@ -91,5 +91,23 @@ export default async function handler(req,res){
     const u=await requireUser(req,res,['REFEREE']);if(!u)return;return res.status(200).json({ok:true,assignments:(await listJson('referee-assignments/',3000)).filter(x=>x.refereeUserId===u.id)});
   }
 
+  if(op==='certificate'||op==='certificate-qr'){
+    const u=await requireUser(req,res,['ATHLETE']);if(!u)return;
+    if(op==='certificate'){
+      const tournamentId=clean(req.query.tournamentId,80);if(!tournamentId)return res.status(400).json({ok:false,error:'tournament_required'});
+      const [trn,profile,events,matches,medals]=await Promise.all([getJson('tournaments/'+tournamentId+'.json'),getJson('athletes/'+u.id+'.json'),listJson('ranking-events/',10000),listJson('matches/',10000),listJson('medals/',5000)]);
+      if(!trn)return res.status(404).json({ok:false,error:'tournament_not_found'});
+      const mineMatches=matches.filter(x=>x.tournamentId===tournamentId&&x.status==='COMPLETED'&&(x.athleteA?.userId===u.id||x.athleteB?.userId===u.id));
+      if(!mineMatches.length)return res.status(409).json({ok:false,error:'no_completed_result'});
+      const mineEvents=events.filter(x=>x.tournamentId===tournamentId&&x.athleteUserId===u.id),mineMedals=medals.filter(x=>x.tournamentId===tournamentId&&x.athleteUserId===u.id);
+      const code=crypto.createHmac('sha256',process.env.SOC_TICKET_SIGNING_KEY||'').update('CERT|'+u.id+'|'+tournamentId).digest('base64url').slice(0,28);
+      const cert={code,socId:u.socId,athleteName:profile?.displayName||u.name,academyName:profile?.academyName||'',belt:profile?.belt||'',tournamentId,tournamentName:trn.name,eventDate:trn.startAt||'',wins:mineEvents.filter(x=>x.type==='WIN').length,points:mineEvents.reduce((s,x)=>s+(Number(x.finalPoints)||0),0),medals:mineMedals.map(x=>({medal:x.medal,absolute:x.absolute})),issuedAt:now()};
+      await putJson('certificates/'+code+'.json',cert);
+      return res.status(200).json({ok:true,certificate:cert});
+    }
+    const code=clean(req.query.code,60);const cert=await getJson('certificates/'+code+'.json');if(!cert||cert.socId!==u.socId)return res.status(404).end();
+    const svg=await QRCode.toString('SOC-CERT:'+code,{type:'svg',margin:1,width:260,errorCorrectionLevel:'M'});res.setHeader('Content-Type','image/svg+xml; charset=utf-8');res.setHeader('Cache-Control','private, no-store');return res.status(200).send(svg);
+  }
+
   return res.status(404).json({ok:false,error:'unknown_member_operation'});
 }
