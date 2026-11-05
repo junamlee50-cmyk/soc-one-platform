@@ -23,6 +23,7 @@ const { query, inTransaction, closePool }=await import('../lib/database.js');
 const { putJson, getJson, listJson, hash }=await import('../lib/blobdb.js');
 const member=(await import('../api/member.js')).default;
 const ops=(await import('../api/ops.js')).default;
+const auth=(await import('../api/auth.js')).default;
 await query(await readFile(new URL('../db/migrations/001_operational_records.sql',import.meta.url),'utf8'));
 const seed=(path,value)=>putJson(path,value);
 const response=()=>({statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.statusCode=n;return this},json(body){this.body=body;return this},send(body){this.body=body;return this},end(){return this}});
@@ -100,4 +101,12 @@ test('backup restore preserves SOC IDs and refuses nonempty or corrupt targets a
  await query('DELETE FROM soc_records');
  await assert.rejects(restoreSnapshot({...snapshot,records:[...snapshot.records,{path:'bad/path/invalid.json',value:{id:'invalid'}}]}));
  assert.equal((await listJson('users/')).length,0);
+});
+
+
+test('concurrent account registration preserves one email index and SOC identity',async()=>{
+ const body={name:'Concurrent Test',email:'duplicate@example.test',password:'isolated-test-password',consent:true};
+ const result=await Promise.all([call(auth,'register','',body),call(auth,'register','',body)]);
+ assert.deepEqual(result.map(r=>r.statusCode).sort(),[201,409]);
+ assert.equal((await listJson('users/')).length,1);assert.equal((await listJson('user-email/')).length,1);assert.equal((await listJson('sessions/')).length,1);
 });

@@ -14,9 +14,12 @@
   "scripts": {
     "check": "node scripts/validate.mjs",
     "test": "node --experimental-test-module-mocks --test tests/*.test.js",
-    "validate": "npm run check && npm test"
+    "validate": "npm run check && npm test",
+    "test:browser": "node --experimental-test-module-mocks tests/browser-smoke.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.15"
+    "@electric-sql/pglite": "^0.5.15",
+    "@sparticuz/chromium": "^153.0.0",
+    "playwright": "^1.64.1"
   }
 }

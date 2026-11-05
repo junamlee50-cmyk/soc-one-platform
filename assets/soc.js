@@ -1,7 +1,7 @@
 window.SOC={
 escape:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
 money:n=>new Intl.NumberFormat('ko-KR').format(n)+'원',
-async request(url,options={}){try{const r=await fetch(url,{credentials:'include',...options});if(!(r.headers.get('content-type')||'').includes('application/json'))return {ok:false,error:'service_unavailable',message:'서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'};return await r.json()}catch{return {ok:false,error:'network_error',message:'인터넷 연결을 확인한 뒤 다시 시도해 주세요.'}}},
+async request(url,options={}){try{const r=await fetch(url,{credentials:'include',...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});if(!(r.headers.get('content-type')||'').includes('application/json'))return {ok:false,error:'service_unavailable',message:'서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'};return await r.json()}catch{return {ok:false,error:'network_error',message:'인터넷 연결을 확인한 뒤 다시 시도해 주세요.'}}},
 async get(url){return this.request(url)},
 async post(url,data){return this.request(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})},
 toast(msg){alert(msg)}

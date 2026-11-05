@@ -154,6 +154,11 @@ test('two-athlete flow: register, verify payment, check in, weigh, bracket, resu
   const dashboard=await call('member','dashboard',{headers:member(body.winnerUserId),query:{role:'athlete'}});
   assert.equal(dashboard.body.data.points,85);
   assert.equal(rows('medals/').length,2);assert(rows('audit/').some(x=>x.action==='MATCH_RESULT'));
+  const cert=await call('member','certificate',{method:'POST',headers:member(body.winnerUserId),body:{tournamentId:'t1'}});
+  assert.equal(cert.statusCode,200);assert.equal(cert.body.certificate.points,85);
+  const verified=await call('public','verify-cert',{query:{code:cert.body.certificate.code}});
+  assert.equal(verified.body.valid,true);assert.equal(verified.body.certificate.wins,1);
+  assert.match(verified.headers['cache-control'],/no-store/);
 });
 test('support evaluation rejects negative and infinite component scores',async()=>{
   const headers=member('staff',['STAFF']);put('support-applications/s.json',{id:'s',status:'SUBMITTED'});
@@ -186,4 +191,26 @@ for(const count of [3,5,8,16])test(`${count}-athlete bracket completes through b
   assert.equal(rows('ranking-events/').filter(x=>x.type==='WIN').length,count-1);
   assert.equal(rows('matches/').filter(x=>x.status==='SCHEDULED').length,0);
   assert.equal(rows('medals/').filter(x=>x.medal==='GOLD').length,1);
+});
+
+
+test('referee match access is restricted to the assigned mat',async()=>{
+ const headers=member('ref',['REFEREE']);tournament();
+ put('referee-assignments/a.json',{refereeUserId:'ref',tournamentId:'t1',matNo:1,status:'ASSIGNED'});
+ for(const matNo of [1,2])put('matches/m'+matNo+'.json',{id:'m'+matNo,tournamentId:'t1',matNo,roundNo:1,status:'SCHEDULED'});
+ assert.deepEqual((await call('ops','matches',{headers})).body.matches.map(m=>m.matNo),[1]);
+ assert.equal((await call('ops','result',{method:'POST',headers,body:{matchId:'m2',winnerUserId:'a'}})).statusCode,403);
+});
+
+test('single-athlete division stops without inventing a match or medal',async()=>{
+ tournament();const headers=member('staff',['STAFF']),divisionKey=records.get('divisions/d1.json').key;
+ put('registrations/only.json',{id:'only',userId:'a',tournamentId:'t1',divisionKey,status:'REGISTERED',paymentStatus:'PAID',weighInStatus:'PASSED'});
+ const r=await call('ops','bracket',{method:'POST',headers,body:{tournamentId:'t1',divisionKey}});
+ assert.equal(r.body.error,'not_enough_eligible_athletes');assert.equal(rows('matches/').length,0);assert.equal(rows('medals/').length,0);
+});
+test('registration cannot request elevated roles and coaches cannot read another academy',async()=>{
+ const r=await call('auth','register',{method:'POST',body:{name:'test',email:'role@example.test',password:'test-password-long',consent:true,role:'CEO',roles:['CEO','ADMIN']}});
+ assert.equal(r.statusCode,201);assert(!r.body.user.roles.includes('CEO'));assert(!r.body.user.roles.includes('ADMIN'));
+ const headers=member('coach',['COACH']);put('academies/other.json',{id:'other',coachUserId:'someone-else',status:'APPROVED'});
+ assert.equal((await call('member','academy-athletes',{headers,query:{academyId:'other'}})).statusCode,403);
 });
