@@ -1,9 +1,23 @@
-import crypto from 'node:crypto';
-function clean(v,max=120){return typeof v==='string'?v.trim().replace(/[<>]/g,'').slice(0,max):''}
+import { getJson, putJson, clean, now } from '../lib/blobdb.js';
+import { requireUser } from '../lib/auth.js';
+
 export default async function handler(req,res){
-  if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).end()}
-  const b=req.body||{};
-  const socId=clean(b.socId,24), belt=clean(b.belt,20), academy=clean(b.academy,120);
-  if(!socId) return res.status(400).json({ok:false,error:'soc_id_required'});
-  return res.status(201).json({ok:true,athlete:{id:crypto.randomUUID(),socId,belt,academy,status:'REGISTERED',seasonPoints:0,record:{wins:0,losses:0}}});
+  const user=await requireUser(req,res,['ATHLETE']); if(!user)return;
+  const path='athletes/'+user.id+'.json';
+  if(req.method==='GET'){
+    const row=await getJson(path);
+    return res.status(200).json({ok:true,athlete:row});
+  }
+  if(req.method==='POST'||req.method==='PUT'){
+    const b=req.body||{}; const prev=await getJson(path);
+    const row={userId:user.id,socId:user.socId,displayName:clean(b.displayName,80)||prev?.displayName||user.name,
+      belt:clean(b.belt,20)||prev?.belt||'WHITE',gender:clean(b.gender,20)||prev?.gender||'',
+      defaultWeightKg:Number(b.defaultWeightKg)||prev?.defaultWeightKg||null,
+      academyId:clean(b.academyId,80)||prev?.academyId||'',academyName:clean(b.academyName,160)||prev?.academyName||'',
+      publicProfile:Boolean(b.publicProfile),countryCode:clean(b.countryCode,2)||prev?.countryCode||'KR',
+      status:prev?.status||'REGISTERED',createdAt:prev?.createdAt||now(),updatedAt:now()};
+    await putJson(path,row);
+    return res.status(prev?200:201).json({ok:true,athlete:row});
+  }
+  res.setHeader('Allow','GET, POST, PUT');return res.status(405).json({ok:false,error:'method_not_allowed'});
 }
