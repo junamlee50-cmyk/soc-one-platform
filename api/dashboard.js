@@ -27,8 +27,7 @@ export default async function handler(req,res){
     return res.status(200).json({ok:true,role,data:{academies:mine.length,registeredAthletes:athleteIds.size,eventRegistrations:myRegs.length,teamPoints:points}});
   }
   if(role==='region'){
-    const [academies,audit]=await Promise.all([listJson('academies/',2000),listJson('audit/',2000)]);
-    return res.status(200).json({ok:true,role,data:{approvedAcademies:academies.filter(x=>x.status==='APPROVED').length,pendingAcademies:academies.filter(x=>x.status==='PENDING').length,activityEvents:audit.length,kpi:'미산정'}});
+    const region=user.committeeRegion||''; const [academies,regs,audit]=await Promise.all([listJson('academies/',2000),listJson('registrations/',10000),listJson('audit/',2000)]); const scoped=region?academies.filter(x=>x.region===region):[]; const ids=new Set(scoped.map(x=>x.id)); const scopedRegs=regs.filter(x=>ids.has(x.academyId)); const activeAthletes=new Set(scopedRegs.map(x=>x.userId)).size; return res.status(200).json({ok:true,role,data:{region:region||'미지정',approvedAcademies:scoped.filter(x=>x.status==='APPROVED').length,pendingAcademies:scoped.filter(x=>x.status==='PENDING').length,eventRegistrations:scopedRegs.length,activeAthletes,activityEvents:audit.filter(x=>ids.has(x.entityId)).length}});
   }
   if(role==='referee'){
     const matches=await listJson('matches/',5000);
