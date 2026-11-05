@@ -66,5 +66,11 @@ export default async function handler(req,res){
     return res.status(200).json({ok:true,content:rows.map(({id,type,title,summary,coverUrl,publishedAt,athleteSocId,academyId})=>({id,type,title,summary,coverUrl,publishedAt,athleteSocId,academyId}))});
   }
 
+  if(op==='verify-cert'){
+    const code=clean(req.query.code,60);if(!code)return res.status(400).json({ok:false,error:'code_required'});
+    const cert=await getJson('certificates/'+code+'.json');if(!cert)return res.status(404).json({ok:false,valid:false,error:'certificate_not_found'});
+    return res.status(200).json({ok:true,valid:true,certificate:cert});
+  }
+
   return res.status(404).json({ok:false,error:'unknown_public_operation'});
 }
