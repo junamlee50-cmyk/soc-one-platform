@@ -6,3 +6,4 @@ toast(msg){alert(msg)}
 };
 function toggleMenu(){const e=document.getElementById('mobileMenu');if(e)e.style.display=e.style.display==='block'?'none':'block'}
 document.addEventListener('click',e=>{if(e.target.matches('.tab')){const p=e.target.parentElement;p.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));e.target.classList.add('active')}});
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(()=>{}));}
