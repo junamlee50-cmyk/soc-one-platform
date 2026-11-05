@@ -7,9 +7,10 @@ export default async function handler(req,res){
   const allowed=['ATHLETE','COACH','ACADEMY_ADMIN','COMMITTEE','REFEREE','STAFF','FINANCE','ADMIN'];
   if(!allowed.includes(role)||!['GRANT','REVOKE'].includes(action))return res.status(400).json({ok:false,error:'invalid_role_change'});
   const user=await getJson('users/'+userId+'.json'); if(!user)return res.status(404).json({ok:false,error:'user_not_found'});
-  const before=[...(user.roles||[])];
+  const before={roles:[...(user.roles||[])],committeeRegion:user.committeeRegion||null};
   if(action==='GRANT')user.roles=[...new Set([...(user.roles||[]),role])]; else user.roles=(user.roles||[]).filter(x=>x!==role);
+  if(role==='COMMITTEE'){user.committeeRegion=action==='GRANT'?clean(b.region,80):null;}
   user.updatedAt=now();await putJson('users/'+user.id+'.json',user);
-  await putJson('audit/'+makeId('aud')+'.json',{actorUserId:actor.id,action:'ROLE_'+action,entityType:'USER',entityId:user.id,before:{roles:before},after:{roles:user.roles},createdAt:now()},{overwrite:false});
-  return res.status(200).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles}});
+  await putJson('audit/'+makeId('aud')+'.json',{actorUserId:actor.id,action:'ROLE_'+action,entityType:'USER',entityId:user.id,before,after:{roles:user.roles,committeeRegion:user.committeeRegion||null},createdAt:now()},{overwrite:false});
+  return res.status(200).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,roles:user.roles,committeeRegion:user.committeeRegion||null}});
 }
