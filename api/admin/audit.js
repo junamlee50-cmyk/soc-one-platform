@@ -1,0 +1,8 @@
+import { listJson } from '../../lib/blobdb.js';
+import { requireUser } from '../../lib/auth.js';
+export default async function handler(req,res){
+  if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({ok:false,error:'method_not_allowed'});}
+  const actor=await requireUser(req,res,['ADMIN','CEO']); if(!actor)return;
+  const rows=(await listJson('audit/',2000)).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0,500);
+  return res.status(200).json({ok:true,audit:rows});
+}
