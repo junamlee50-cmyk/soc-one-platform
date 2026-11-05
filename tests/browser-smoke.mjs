@@ -1,5 +1,6 @@
 // Isolated HTTPS browser test. Never connects to operational Blob or PostgreSQL.
 import {mock} from 'node:test';
+import {TEST_RULES} from './helpers/rules.js';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {readFile} from 'node:fs/promises';
@@ -53,6 +54,24 @@ try{
  await desktop.goto(base+'/admin.html');await desktop.locator('#tName').fill('격리 브라우저 대회');await desktop.locator('#tStart').fill('2027-03-01T10:00');await desktop.locator('#tOpen').fill('2026-11-01T00:00');await desktop.locator('#tClose').fill('2027-02-28T00:00');await desktop.getByRole('button',{name:'대회 저장'}).click();await desktop.waitForFunction(()=>document.getElementById('tMsg').textContent==='저장 완료');
  await desktop.locator('#dWeight').fill('-70kg');await desktop.locator('#dLimit').fill('70');await desktop.locator('#dAge').selectOption('ADULT');await desktop.getByRole('button',{name:'디비전 생성'}).click();await desktop.waitForFunction(()=>document.getElementById('dMsg').textContent==='생성 완료');
  await desktop.getByRole('link',{name:'경기 규정 검토·승인'}).click();await desktop.locator('#version').waitFor();await desktop.locator('#reason').fill('격리 시험 검토안');await desktop.getByRole('button',{name:'검토안 저장'}).click();await desktop.waitForFunction(()=>document.getElementById('msg').textContent==='검토안을 저장했습니다.');
+ // Match fixtures stay inside the isolated test DB; exercise real UI buttons.
+ const seed=async(path,value)=>query('INSERT INTO soc_records(path,value) VALUES ($1,$2::jsonb) ON CONFLICT(path) DO UPDATE SET value=excluded.value',[path,JSON.stringify(value)]);
+ const event=(await query("SELECT value FROM soc_records WHERE collection='tournaments'")).rows[0].value;
+ await seed('tournaments/'+event.id+'.json',{...event,status:'REGISTRATION_OPEN',rulesId:TEST_RULES.id});
+ await seed('rules/'+TEST_RULES.id+'.json',TEST_RULES);
+ const divisionKey='GI|ADULT|MALE|WHITE|70|WEIGHT';
+ await seed('brackets/browser-bracket.json',{id:'browser-bracket',tournamentId:event.id,status:'PUBLISHED',rankingPolicy:TEST_RULES,divisionKey,athleteCount:2,roundCount:1});
+ await seed('athletes/browser-a.json',{userId:'browser-a',displayName:'브라우저 공개 선수',publicProfile:true});
+ await seed('athletes/browser-b.json',{userId:'browser-b',displayName:'노출금지 이름',publicProfile:false});
+ await seed('matches/browser-match.json',{id:'browser-match',bracketId:'browser-bracket',tournamentId:event.id,divisionKey,roundNo:1,sequenceNo:1,matNo:1,status:'SCHEDULED',athleteA:{userId:'browser-a',socId:'SOC-browser-a',name:'브라우저 공개 선수'},athleteB:{userId:'browser-b',socId:'SOC-browser-b',name:'노출금지 이름'}});
+ await desktop.goto(base+'/tournament-ops.html');await desktop.getByRole('button',{name:'선수 호출',exact:true}).click();await desktop.getByRole('button',{name:'경기 시작',exact:true}).click();await desktop.waitForFunction(()=>document.getElementById('opsMatches').textContent.includes('경기 중'));
+ desktop.once('dialog',dialog=>dialog.accept('격리 시험 대진 공개'));await desktop.getByRole('button',{name:'대진 공개',exact:true}).click();await desktop.getByRole('button',{name:'공개 중단',exact:true}).waitFor();
+ await page.goto(base+'/live.html');await page.getByText('브라우저 공개 선수 vs 비공개 선수',{exact:true}).waitFor();assert(!(await page.locator('body').innerText()).includes('노출금지 이름'));
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'live mobile horizontal overflow');
+ await desktop.locator('#winnerSelect').selectOption('browser-a');await desktop.getByRole('button',{name:'결과 저장',exact:true}).click();await desktop.waitForFunction(()=>document.getElementById('resultMsg').textContent==='결과 저장 완료');
+ await page.getByRole('button',{name:'새로고침',exact:true}).click();await page.getByText('승자: 브라우저 공개 선수',{exact:true}).waitFor();
+ await desktop.goto(base+'/live.html');await desktop.getByText('승자: 브라우저 공개 선수',{exact:true}).waitFor();assert(await desktop.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'live desktop horizontal overflow');
+ await context.setOffline(true);await page.getByRole('button',{name:'새로고침',exact:true}).click();await page.waitForFunction(()=>document.getElementById('liveBrackets').childElementCount===0);await context.setOffline(false);
  // Install SW, inspect sensitive cache exclusion and offline save feedback.
  await page.goto(base+'/athlete-app.html'); // logged out, route redirects to login
  await page.goto(base+'/ranking.html');await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
@@ -60,5 +79,5 @@ try{
  assert(!paths.some(p=>p.startsWith('/api/')||/admin|athlete-app|my-soc|certificate|setup/.test(p)));
  await context.setOffline(true);const offline=await page.evaluate(()=>SOC.post('/api/auth/login',{email:'none@example.test',password:'none'}));assert.equal(offline.ok,false);assert.equal(offline.error,'network_error');
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({ok:true,browser:'Chromium',views:['390x844','1365x900'],checks:['signup/login/logout','second-browser profile and SOC ID persistence','role denial','admin tournament and division creation','draft rules','no horizontal overflow on athlete page','no sensitive SW cache','offline mutation failure'],productionDataUsed:false}));
+ console.log(JSON.stringify({ok:true,browser:'Chromium',views:['390x844','1365x900'],checks:['signup/login/logout','second-browser profile and SOC ID persistence','role denial','admin tournament and division creation','draft rules','match call/start/result UI','explicit bracket publication and privacy','live board mobile and desktop','offline board clears stale status','no horizontal overflow on athlete page','no sensitive SW cache','offline mutation failure'],productionDataUsed:false}));
 }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));await local.close();}

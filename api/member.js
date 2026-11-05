@@ -1,3 +1,4 @@
+import { assignmentActive, assignmentCoversMatch } from '../lib/referee-scope.js';
 import { registrationPrice, eligibility } from '../lib/registration.js';
 import { seasonRanking, DEFAULT_SEASON } from '../lib/ranking.js';
 import { apiHandler } from '../lib/http.js';
@@ -40,6 +41,7 @@ async function handler(req,res){
       if(opens!==null&&Date.now()<opens)return res.status(409).json({ok:false,error:'registration_not_started'});
       if(closes!==null&&Date.now()>=closes)return res.status(409).json({ok:false,error:'registration_closed'});
       const div=await getJson('divisions/'+divisionId+'.json');if(!div||div.tournamentId!==tournamentId||div.active===false)return res.status(404).json({ok:false,error:'division_not_found'});
+      if((await listJson('brackets/',1000,{tournamentId,divisionKey:div.key})).some(b=>b.status==='PUBLISHED'))return res.status(409).json({ok:false,error:'division_bracket_locked'});
       const existing=(await listJson('registrations/',3000,{userId:user.id,tournamentId,divisionId})).find(x=>x.userId===user.id&&x.tournamentId===tournamentId&&x.divisionId===divisionId&&!['CANCELED','REFUNDED'].includes(x.status));if(existing)return res.status(409).json({ok:false,error:'duplicate_registration',registration:existing});
       if(div.capacity!=null){const capacity=Number(div.capacity);if(!Number.isInteger(capacity)||capacity<1)return res.status(409).json({ok:false,error:'invalid_capacity'});const active=(await listJson('registrations/',3000,{tournamentId,divisionId})).filter(x=>!['CANCELED','REFUNDED'].includes(x.status));if(active.length>=capacity)return res.status(409).json({ok:false,error:'division_full'});}
       const profile=await getJson('athletes/'+user.id+'.json');
@@ -80,7 +82,7 @@ async function handler(req,res){
       return res.status(200).json({ok:true,role,season,data:{academies:mine.length,registeredAthletes:athleteIds.size,eventRegistrations:myRegs.length,teamPoints:Math.round(teamPoints*100)/100}});
     }
     if(role==='region'){const region=user.committeeRegion||'', [academies,regs,audit]=await Promise.all([listJson('academies/',2000),listJson('registrations/',10000),listJson('audit/',2000)]),scoped=region?academies.filter(x=>x.region===region):[],ids=new Set(scoped.map(x=>x.id)),scopedRegs=regs.filter(x=>ids.has(x.academyId));return res.status(200).json({ok:true,role,data:{region:region||'미지정',approvedAcademies:scoped.filter(x=>x.status==='APPROVED').length,pendingAcademies:scoped.filter(x=>x.status==='PENDING').length,eventRegistrations:scopedRegs.length,activeAthletes:new Set(scopedRegs.map(x=>x.userId)).size,activityEvents:audit.filter(x=>ids.has(x.entityId)).length}});}
-    if(role==='referee'){const assignments=(await listJson('referee-assignments/',1000,{refereeUserId:user.id})).filter(a=>a.status==='ASSIGNED');const matches=(await listJson('matches/')).filter(m=>assignments.some(a=>a.tournamentId===m.tournamentId&&Number(a.matNo)>0&&Number(a.matNo)===Number(m.matNo))),judged=matches.filter(x=>x.resultBy===user.id&&x.status==='COMPLETED');return res.status(200).json({ok:true,role,data:{completedMatches:judged.length,scheduled:matches.filter(x=>x.status==='SCHEDULED').length,assignments:assignments.length,rating:'-'}});}
+    if(role==='referee'){const assignments=(await listJson('referee-assignments/',1000,{refereeUserId:user.id})).filter(a=>assignmentActive(a));const matches=(await listJson('matches/')).filter(m=>assignments.some(a=>assignmentCoversMatch(a,m))),judged=matches.filter(x=>x.resultBy===user.id&&x.status==='COMPLETED');return res.status(200).json({ok:true,role,data:{completedMatches:judged.length,scheduled:matches.filter(x=>x.status==='SCHEDULED').length,assignments:assignments.length,rating:'-'}});}
     if(role==='ceo'){const [users,academies,tournaments,regs,audit]=await Promise.all([listJson('users/',5000),listJson('academies/',2000),listJson('tournaments/',1000),listJson('registrations/',10000),listJson('audit/',3000)]);return res.status(200).json({ok:true,role,data:{members:users.filter(x=>x.status==='ACTIVE').length,academies:academies.filter(x=>x.status==='APPROVED').length,tournaments:tournaments.length,paidRevenue:regs.filter(x=>x.paymentStatus==='PAID').reduce((s,x)=>s+(Number(x.amount)||0),0),registrations:regs.length,auditEvents:audit.length}});}
     return res.status(400).json({ok:false,error:'unknown_role'});
   }

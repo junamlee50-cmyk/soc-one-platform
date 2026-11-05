@@ -78,6 +78,15 @@ test('simultaneous match results create one winner and two medals',async()=>{
  assert.deepEqual(result.map(r=>r.statusCode).sort(),[200,409]);
  assert.equal((await listJson('medals/')).length,2);assert.equal((await listJson('ranking-events/')).filter(x=>x.type==='WIN').length,1);
 });
+
+test('concurrent calls for a single mat commit only one active match',async()=>{
+ await resultFixture();const match=await getJson('matches/m.json');match.matNo=1;await seed('matches/m.json',match);
+ await seed('matches/other.json',{...match,id:'other',athleteA:{userId:'c'},athleteB:{userId:'d'}});
+ const result=await Promise.all(['m','other'].map(matchId=>call(ops,'match-state','staff',{matchId,action:'CALL'})));
+ assert.deepEqual(result.map(r=>r.statusCode).sort(),[200,409]);
+ assert.equal((await listJson('matches/')).filter(m=>m.status==='CALLED').length,1);
+ assert.equal((await listJson('audit/')).filter(a=>a.action==='MATCH_CALL').length,1);
+});
 test('partial result failure rolls back winner, points, medals, and audit; retry succeeds',async()=>{
  await resultFixture();
  if(realPostgres){

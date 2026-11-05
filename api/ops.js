@@ -1,4 +1,6 @@
 import { bracketFactor, validateRules } from '../lib/rules.js';
+import { assignmentActive, assignmentCoversMatch } from '../lib/referee-scope.js';
+import { matchTransitionError } from '../lib/match-state.js';
 import { scheduleError } from '../lib/scheduling.js';
 import { retractResult } from '../lib/corrections.js';
 import { usesPostgres } from '../lib/database.js';
@@ -16,9 +18,9 @@ async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
   const user=await requireUser(req,res,['REFEREE','STAFF','ADMIN','CEO']);if(!user)return;
   const isStaff=['STAFF','ADMIN','CEO'].some(r=>(user.roles||[]).includes(r));
-  const assignments=isStaff?[]:(await listJson('referee-assignments/',3000)).filter(x=>x.refereeUserId===user.id&&x.status==='ASSIGNED');
+  const assignments=isStaff?[]:(await listJson('referee-assignments/',3000,{refereeUserId:user.id})).filter(x=>assignmentActive(x));
   const assigned=new Set(assignments.map(x=>x.tournamentId));
-  const allowedMatch=m=>isStaff||assignments.some(a=>a.tournamentId===m.tournamentId&&Number(a.matNo)>0&&Number(a.matNo)===Number(m.matNo));
+  const allowedMatch=m=>isStaff||assignments.some(a=>assignmentCoversMatch(a,m));
   const allowedTournament=id=>isStaff||assigned.has(id);
   const deny=()=>res.status(403).json({ok:false,error:'tournament_not_assigned'});
   if(op==='tournaments'){
@@ -31,6 +33,13 @@ async function handler(req,res){
     if(!isStaff)return res.status(200).json({ok:true,registrations:[]});
     if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({ok:false,error:'method_not_allowed'});}
     const tournamentId=String(req.query.tournamentId||'');let rows=(await listJson('registrations/',10000)).filter(x=>allowedTournament(x.tournamentId));if(tournamentId)rows=rows.filter(x=>x.tournamentId===tournamentId);return res.status(200).json({ok:true,registrations:rows});
+  }
+
+  if(op==='brackets'){
+    if(!isStaff)return res.status(403).json({ok:false,error:'staff_required'});
+    const tournamentId=clean(req.query.tournamentId,80);
+    if(!tournamentId)return res.status(400).json({ok:false,error:'tournament_required'});
+    return res.status(200).json({ok:true,brackets:await listJson('brackets/',1000,{tournamentId})});
   }
 
   if(op==='matches'){
@@ -49,6 +58,7 @@ async function handler(req,res){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
     const b=req.body||{},registrationId=clean(b.registrationId,80),weight=Number(b.weightKg);if(!registrationId||!Number.isFinite(weight)||weight<=0)return res.status(400).json({ok:false,error:'invalid_input'});const reg=await getJson('registrations/'+registrationId+'.json');if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});if(!allowedTournament(reg.tournamentId))return deny();const event=await getJson('tournaments/'+reg.tournamentId+'.json');if(!event||event.status==='CANCELED')return res.status(409).json({ok:false,error:'tournament_inactive'});if(reg.status!=='REGISTERED')return res.status(409).json({ok:false,error:'registration_inactive'});if(reg.paymentStatus!=='PAID')return res.status(409).json({ok:false,error:'payment_not_completed'});
     if(reg.checkInStatus!=='CHECKED_IN')return res.status(409).json({ok:false,error:'checkin_required'});
+    if((await listJson('brackets/',1000,{tournamentId:reg.tournamentId,divisionKey:reg.divisionKey})).some(b=>b.status==='PUBLISHED'))return res.status(409).json({ok:false,error:'published_bracket_requires_correction'});
     const div=reg.divisionId?await getJson('divisions/'+reg.divisionId+'.json'):null;
     if(!div||(!div.absolute&&(!Number.isFinite(Number(div.weightLimitKg))||Number(div.weightLimitKg)<=0)))return res.status(409).json({ok:false,error:'division_weight_limit_required'});
     const limit=div.absolute?0:Number(div.weightLimitKg),passed=div.absolute||weight<=limit;
@@ -69,11 +79,50 @@ async function handler(req,res){
     const bracket={id:bracketId,tournamentId,divisionKey,rankingPolicy:rules,athleteCount:regs.length,bracketSize:size,roundCount,status:'PUBLISHED',createdBy:user.id,createdAt:now(),rounds:roundIds};await putJson('brackets/'+bracketId+'.json',bracket,{overwrite:false});for(const m of matches)await putJson('matches/'+m.id+'.json',m,{overwrite:false});for(const m of matches.filter(x=>x.roundNo===1))await propagateBye(m,map);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'BRACKET_PUBLISHED',entityType:'BRACKET',entityId:bracketId,after:bracket,createdAt:now()},{overwrite:false});return res.status(201).json({ok:true,bracket,matches:[...map.values()]});
   }
 
+  if(op==='bracket-visibility'){
+    if(!isStaff)return res.status(403).json({ok:false,error:'staff_required'});
+    const b=req.body||{},bracket=await getJson('brackets/'+clean(b.bracketId,80)+'.json');
+    if(!bracket)return res.status(404).json({ok:false,error:'bracket_not_found'});
+    const reason=clean(b.reason,500),event=await getJson('tournaments/'+bracket.tournamentId+'.json');
+    if(!reason||typeof b.visible!=='boolean')return res.status(400).json({ok:false,error:'visibility_reason_required'});
+    if(!event||!['REGISTRATION_OPEN','PUBLISHED','CLOSED','COMPLETED'].includes(event.status))return res.status(409).json({ok:false,error:'tournament_inactive'});
+    if(bracket.publicVisible===b.visible)return res.status(409).json({ok:false,error:'visibility_unchanged'});
+    const before={...bracket};bracket.publicVisible=b.visible;bracket.visibilityUpdatedAt=now();bracket.visibilityUpdatedBy=user.id;
+    await putJson('brackets/'+bracket.id+'.json',bracket);
+    await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'BRACKET_VISIBILITY',entityType:'BRACKET',entityId:bracket.id,before,after:bracket,reason,createdAt:now()},{overwrite:false});
+    return res.status(200).json({ok:true,bracket});
+  }
+
+  if(op==='match-state'){
+    const b=req.body||{},match=await getJson('matches/'+clean(b.matchId,80)+'.json');
+    if(!match)return res.status(404).json({ok:false,error:'match_not_found'});
+    if(!allowedMatch(match))return res.status(403).json({ok:false,error:'mat_not_assigned'});
+    const event=await getJson('tournaments/'+match.tournamentId+'.json');
+    if(!event||!['REGISTRATION_OPEN','PUBLISHED','CLOSED'].includes(event.status))return res.status(409).json({ok:false,error:'tournament_inactive'});
+    const action=clean(b.action,20),reason=clean(b.reason,500),before={...match};
+    if(action==='RESET'){
+      if(!isStaff)return res.status(403).json({ok:false,error:'staff_required'});
+      if(!reason)return res.status(400).json({ok:false,error:'change_reason_required'});
+      if(!['CALLED','IN_PROGRESS'].includes(match.status))return res.status(409).json({ok:false,error:'invalid_match_transition'});
+      match.status='SCHEDULED';delete match.calledAt;delete match.startedAt;delete match.calledBy;delete match.startedBy;
+    }else{
+      const error=matchTransitionError(match,action,await listJson('matches/'));
+      if(error)return res.status(409).json({ok:false,error});
+      match.status=action==='CALL'?'CALLED':'IN_PROGRESS';
+      match[action==='CALL'?'calledAt':'startedAt']=now();match[action==='CALL'?'calledBy':'startedBy']=user.id;
+    }
+    match.updatedAt=now();await putJson('matches/'+match.id+'.json',match);
+    await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'MATCH_'+action,entityType:'MATCH',entityId:match.id,before,after:match,reason:reason||null,createdAt:now()},{overwrite:false});
+    return res.status(200).json({ok:true,match});
+  }
+
   if(op==='schedule'){
     if(!isStaff)return res.status(403).json({ok:false,error:'staff_required'});
     const b=req.body||{},id=clean(b.matchId,80),match=await getJson('matches/'+id+'.json');
     if(!match)return res.status(404).json({ok:false,error:'match_not_found'});
     if(match.status!=='SCHEDULED')return res.status(409).json({ok:false,error:'match_not_schedulable'});
+    const event=await getJson('tournaments/'+match.tournamentId+'.json');
+    if(!event||['DRAFT','CANCELED','COMPLETED'].includes(event.status))return res.status(409).json({ok:false,error:'tournament_inactive'});
     const before={...match},candidate={...match,matNo:Number(b.matNo),scheduledAt:clean(b.scheduledAt,40),scheduledEndAt:clean(b.scheduledEndAt,40)};
     const error=scheduleError(candidate,await listJson('matches/'));
     if(error)return res.status(409).json({ok:false,error});
@@ -101,9 +150,11 @@ async function handler(req,res){
     if(!allowedMatch(match))return res.status(403).json({ok:false,error:'mat_not_assigned'});
     const event=await getJson('tournaments/'+match.tournamentId+'.json');if(!event||event.status==='CANCELED')return res.status(409).json({ok:false,error:'tournament_inactive'});
     if(match.status==='COMPLETED')return res.status(409).json({ok:false,error:'already_completed'});
+    if(!['SCHEDULED','CALLED','IN_PROGRESS'].includes(match.status))return res.status(409).json({ok:false,error:'invalid_match_transition'});
+    if(!isStaff&&match.status!=='IN_PROGRESS')return res.status(409).json({ok:false,error:'match_not_started'});
     const participants=[match.athleteA,match.athleteB].filter(Boolean),winner=participants.find(x=>x.userId===winnerUserId),loser=participants.find(x=>x.userId!==winnerUserId);
     if(!winner||!loser)return res.status(400).json({ok:false,error:'winner_not_in_match'});
-    if(match.nextMatchId){const next=await getJson('matches/'+match.nextMatchId+'.json');if(!next||next.status==='COMPLETED')return res.status(409).json({ok:false,error:'next_match_unavailable'});}
+    if(match.nextMatchId){const next=await getJson('matches/'+match.nextMatchId+'.json');if(!next||next.status!=='SCHEDULED')return res.status(409).json({ok:false,error:'next_match_unavailable'});}
     const scoringBracket=await getJson('brackets/'+match.bracketId+'.json'),rules=scoringBracket?.rankingPolicy;
     if(!rules||rules.status!=='APPROVED'||validateRules(rules))return res.status(409).json({ok:false,error:'ranking_rules_unapproved'});
     const before={...match};match.winnerUserId=winnerUserId;match.winMethod=clean(b.winMethod,40);match.scoreA=clean(b.scoreA,30);match.scoreB=clean(b.scoreB,30);match.durationSeconds=Number(b.durationSeconds)||null;match.status='COMPLETED';match.endedAt=now();match.resultBy=user.id;await putJson('matches/'+match.id+'.json',match);
@@ -124,6 +175,9 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "brackets": ["GET"],
+  "match-state": ["POST"],
+  "bracket-visibility": ["POST"],
   "correct-result": ["POST"],
   "schedule": ["POST"],
   "registrations": [

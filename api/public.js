@@ -1,4 +1,5 @@
 import { validateTournament, validateDivision } from '../lib/configuration.js';
+import { publicBrackets } from '../lib/public-brackets.js';
 import { seasonRanking, DEFAULT_SEASON } from '../lib/ranking.js';
 import { apiHandler } from '../lib/http.js';
 import { listJson, putJson, getJson, clean, makeId, now } from '../lib/blobdb.js';
@@ -9,6 +10,14 @@ async function handler(req,res){
 
   if(op==='health'){
     return res.status(200).json({ok:true,service:'SOC ONE',environment:process.env.VERCEL_ENV||'unknown',timestamp:new Date().toISOString(),version:'1.0.1-prelaunch',commit:process.env.VERCEL_GIT_COMMIT_SHA||null});
+  }
+
+  if(op==='brackets'){
+    const tournamentId=clean(req.query.tournamentId,80);
+    if(!tournamentId)return res.status(400).json({ok:false,error:'tournament_required'});
+    const event=await getJson('tournaments/'+tournamentId+'.json');
+    if(!event||event.deletedAt||!['REGISTRATION_OPEN','PUBLISHED','CLOSED','COMPLETED'].includes(event.status))return res.status(404).json({ok:false,error:'tournament_not_found'});
+    return res.status(200).json({ok:true,tournament:{id:event.id,name:event.name},brackets:await publicBrackets(tournamentId),updatedAt:now()});
   }
 
   if(op==='academies'){
@@ -95,6 +104,7 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "brackets": ["GET"],
   "health": [
     "GET"
   ],

@@ -35,6 +35,81 @@ async function call(name,op,{method='GET',body={},headers={},query={}}={}){
 }
 beforeEach(()=>{records.clear();reads.length=0;readFailure=null;process.env.SOC_TICKET_SIGNING_KEY=crypto.randomBytes(32).toString('hex');delete process.env.SOC_BOOTSTRAP_TOKEN;delete process.env.SOC_ADMIN_SETUP_KEY;});
 
+test('production cannot mutate operational records on nontransactional Blob',async()=>{
+  process.env.VERCEL_ENV='production';
+  try{
+    const r=await call('auth','register',{method:'POST',body:{name:'blocked',email:'blocked@example.test',password:'test-password-long',consent:true}});
+    assert.equal(r.statusCode,503);assert.equal(r.body.error,'transactional_database_required');assert.equal(records.size,0);
+    assert.equal((await call('auth','logout',{method:'POST'})).statusCode,200);
+    assert.equal((await call('public','health')).statusCode,200);
+  }finally{delete process.env.VERCEL_ENV;}
+});
+
+test('referee assignment requires a time window, rejects conflicts, and revokes live access',async()=>{
+  tournament();const staff=member('staff',['STAFF']),ref=member('ref',['REFEREE']);member('ref2',['REFEREE']);
+  const body={refereeUserId:'ref',tournamentId:'t1',matNo:1,reason:'Isolated test',startsAt:new Date(Date.now()-3600000).toISOString(),endsAt:new Date(Date.now()+3600000).toISOString()};
+  assert.equal((await call('admin','referee-assignment',{method:'POST',headers:staff,body:{...body,startsAt:''}})).statusCode,400);
+  const made=await call('admin','referee-assignment',{method:'POST',headers:staff,body});assert.equal(made.statusCode,201);
+  for(const props of [{matNo:2},{refereeUserId:'ref2'}])assert.equal((await call('admin','referee-assignment',{method:'POST',headers:staff,body:{...body,...props}})).statusCode,409);
+  put('matches/m1.json',{id:'m1',tournamentId:'t1',matNo:1,status:'SCHEDULED'});
+  assert.equal((await call('ops','matches',{headers:ref})).body.matches.length,1);
+  const revoke={action:'REVOKE',assignmentId:made.body.assignment.id,reason:'Shift ended'};
+  assert.equal((await call('admin','referee-assignment',{method:'POST',headers:ref,body:revoke})).statusCode,403);
+  assert.equal((await call('admin','referee-assignment',{method:'POST',headers:staff,body:revoke})).statusCode,200);
+  assert.equal((await call('ops','matches',{headers:ref})).body.matches.length,0);
+  assert.equal(rows('audit/').filter(a=>a.action==='REFEREE_ASSIGNMENT_REVOKED').length,1);
+});
+
+test('expired, future, legacy, and outside-shift referee requests are denied',async()=>{
+  tournament();const headers=member('ref',['REFEREE']);
+  const base={id:'shift',refereeUserId:'ref',tournamentId:'t1',matNo:1,status:'ASSIGNED'};
+  put('matches/m.json',{id:'m',tournamentId:'t1',matNo:1,status:'SCHEDULED',scheduledAt:new Date(Date.now()+7200000).toISOString(),scheduledEndAt:new Date(Date.now()+7800000).toISOString()});
+  for(const [start,end]of [[-7200000,-1],[60000,3600000],[-3600000,3600000],[NaN,NaN]]){
+    put('referee-assignments/shift.json',{...base,startsAt:Number.isFinite(start)?new Date(Date.now()+start).toISOString():undefined,endsAt:Number.isFinite(end)?new Date(Date.now()+end).toISOString():undefined});
+    assert.equal((await call('ops','matches',{headers})).body.matches.length,0);
+    assert.equal((await call('ops','match-state',{method:'POST',headers,body:{matchId:'m',action:'CALL'}})).statusCode,403);
+    assert.equal((await call('member','dashboard',{headers,query:{role:'referee'}})).body.data.scheduled,0);
+  }
+});
+
+test('match calling enforces mat/player occupancy and auditable state transitions',async()=>{
+  tournament();const headers=member('staff',['STAFF']);
+  const a={userId:'a',name:'A'},b={userId:'b',name:'B'};
+  put('matches/m.json',{id:'m',tournamentId:'t1',matNo:1,status:'SCHEDULED',athleteA:a,athleteB:b});
+  put('matches/same-mat.json',{id:'same-mat',tournamentId:'t1',matNo:1,status:'SCHEDULED',athleteA:{userId:'c'},athleteB:{userId:'d'}});
+  put('matches/same-athlete.json',{id:'same-athlete',tournamentId:'t1',matNo:2,status:'SCHEDULED',athleteA:a,athleteB:{userId:'e'}});
+  const move=(matchId,action,reason)=>call('ops','match-state',{method:'POST',headers,body:{matchId,action,reason}});
+  assert.equal((await move('m','START')).statusCode,409);
+  assert.equal((await move('m','CALL')).statusCode,200);
+  assert.equal((await move('m','CALL')).statusCode,409);
+  assert.equal((await move('same-mat','CALL')).body.error,'mat_busy');
+  assert.equal((await move('same-athlete','CALL')).body.error,'athlete_busy');
+  assert.equal((await move('m','START')).body.match.status,'IN_PROGRESS');
+  assert.equal((await move('m','RESET')).statusCode,400);
+  assert.equal((await move('m','RESET','Incident recorded')).body.match.startedAt,undefined);
+  assert.equal((await move('same-mat','CALL')).statusCode,200);
+  assert.equal(rows('audit/').filter(a=>a.action==='MATCH_RESET')[0].before.status,'IN_PROGRESS');
+});
+
+test('public brackets require staff publication and never expose private athlete or payment fields',async()=>{
+  tournament();const staff=member('staff',['STAFF']),athlete=member('a');
+  put('brackets/b.json',{id:'b',tournamentId:'t1',status:'PUBLISHED',divisionKey:'GI|ADULT|MALE|WHITE|70|WEIGHT',roundCount:1});
+  put('athletes/a.json',{userId:'a',displayName:'PUBLIC NAME',publicProfile:true,birthDate:'2000-01-01'});
+  put('athletes/b.json',{userId:'b',displayName:'PRIVATE NAME',publicProfile:false});
+  put('matches/m.json',{id:'m',bracketId:'b',tournamentId:'t1',status:'COMPLETED',athleteA:{userId:'a',name:'PUBLIC NAME',socId:'SOC-PRIVATE'},athleteB:{userId:'b',name:'PRIVATE NAME'},winnerUserId:'a',resultBy:'secret-referee',paymentReference:'secret-reference'});
+  const read=()=>call('public','brackets',{query:{tournamentId:'t1'}});
+  assert.equal((await read()).body.brackets.length,0);
+  const body={bracketId:'b',visible:true,reason:'Explicit publication'};
+  assert.equal((await call('ops','bracket-visibility',{method:'POST',headers:athlete,body})).statusCode,403);
+  assert.equal((await call('ops','bracket-visibility',{method:'POST',headers:staff,body})).statusCode,200);
+  const r=await read(),text=JSON.stringify(r.body);assert(text.includes('PUBLIC NAME'));assert(text.includes('비공개 선수'));
+  for(const secret of ['PRIVATE NAME','SOC-PRIVATE','userId','paymentReference','birthDate','secret-referee'])assert(!text.includes(secret));
+  assert.equal(r.body.brackets[0].matches[0].winnerSide,'A');assert.match(r.headers['cache-control'],/no-store/);
+  assert.equal((await call('ops','bracket-visibility',{method:'POST',headers:staff,body:{...body,visible:false}})).statusCode,200);
+  assert.equal((await read()).body.brackets.length,0);
+  tournament({status:'CANCELED'});assert.equal((await read()).statusCode,404);
+});
+
 for (const [name,op] of [['auth','register'],['auth','logout'],['auth/bootstrap',''],['admin','role'],['member','registrations'],['public','tournaments'],['ops','result']]) {
   test(`${name}/${op}: rejects foreign-origin writes before storage`, async()=>{
     const result=await call(name,op,{method:'POST',headers:{origin:'https://unrelated.example','sec-fetch-site':'cross-site'}});
@@ -113,7 +188,7 @@ test('zero early fee is preserved and negative fees are rejected',async()=>{
 test('referees only see assigned tournaments and cannot edit another event',async()=>{
   const headers=member('ref',['REFEREE']);tournament();
   put('tournaments/t2.json',{id:'t2',name:'Other event'});
-  put('referee-assignments/a.json',{refereeUserId:'ref',tournamentId:'t1',status:'ASSIGNED'});
+  put('referee-assignments/a.json',{refereeUserId:'ref',tournamentId:'t1',status:'ASSIGNED',matNo:1,startsAt:new Date(Date.now()-3600000).toISOString(),endsAt:new Date(Date.now()+3600000).toISOString()});
   put('registrations/other.json',{id:'other',tournamentId:'t2',status:'REGISTERED',paymentStatus:'PAID',checkInStatus:'CHECKED_IN'});
   put('matches/other.json',{id:'other',tournamentId:'t2'});
   assert.deepEqual((await call('ops','tournaments',{headers})).body.tournaments.map(t=>t.id),['t1']);
@@ -199,7 +274,7 @@ for(const count of [3,5,8,16])test(`${count}-athlete bracket completes through b
 
 test('referee match access is restricted to the assigned mat',async()=>{
  const headers=member('ref',['REFEREE']);tournament();
- put('referee-assignments/a.json',{refereeUserId:'ref',tournamentId:'t1',matNo:1,status:'ASSIGNED'});
+ put('referee-assignments/a.json',{refereeUserId:'ref',tournamentId:'t1',matNo:1,status:'ASSIGNED',matNo:1,startsAt:new Date(Date.now()-3600000).toISOString(),endsAt:new Date(Date.now()+3600000).toISOString()});
  for(const matNo of [1,2])put('matches/m'+matNo+'.json',{id:'m'+matNo,tournamentId:'t1',matNo,roundNo:1,status:'SCHEDULED'});
  assert.deepEqual((await call('ops','matches',{headers})).body.matches.map(m=>m.matNo),[1]);
  assert.equal((await call('ops','result',{method:'POST',headers,body:{matchId:'m2',winnerUserId:'a'}})).statusCode,403);
@@ -210,6 +285,17 @@ test('single-athlete division stops without inventing a match or medal',async()=
  put('registrations/only.json',{id:'only',userId:'a',tournamentId:'t1',divisionKey,status:'REGISTERED',paymentStatus:'PAID',checkInStatus:'CHECKED_IN',weighInStatus:'PASSED'});
  const r=await call('ops','bracket',{method:'POST',headers,body:{tournamentId:'t1',divisionKey}});
  assert.equal(r.body.error,'not_enough_eligible_athletes');assert.equal(rows('matches/').length,0);assert.equal(rows('medals/').length,0);
+});
+
+test('published brackets lock new entries, payment downgrades, and reweighing',async()=>{
+ tournament();const headers=member('staff',['STAFF']),athlete=member('late');
+ const divisionKey=records.get('divisions/d1.json').key;
+ put('brackets/locked.json',{id:'locked',tournamentId:'t1',divisionKey,status:'PUBLISHED'});
+ put('registrations/r.json',{id:'r',tournamentId:'t1',divisionId:'d1',divisionKey,status:'REGISTERED',paymentStatus:'PAID',checkInStatus:'CHECKED_IN',weighInStatus:'PASSED'});
+ assert.equal((await call('member','registrations',{method:'POST',headers:athlete,body:{tournamentId:'t1',divisionId:'d1'}})).body.error,'division_bracket_locked');
+ for(const paymentStatus of ['UNPAID','PENDING','REFUND_REQUESTED','REFUNDED','CANCELED'])assert.equal((await call('admin','payment-status',{method:'POST',headers,body:{registrationId:'r',paymentStatus,reason:'test',reference:'test'}})).body.error,'published_bracket_requires_correction');
+ assert.equal((await call('ops','weighin',{method:'POST',headers,body:{registrationId:'r',weightKg:75}})).body.error,'published_bracket_requires_correction');
+ assert.equal(records.get('registrations/r.json').paymentStatus,'PAID');assert.equal(rows('weighins/').length,0);
 });
 test('registration cannot request elevated roles and coaches cannot read another academy',async()=>{
  const r=await call('auth','register',{method:'POST',body:{name:'test',email:'role@example.test',password:'test-password-long',consent:true,role:'CEO',roles:['CEO','ADMIN']}});

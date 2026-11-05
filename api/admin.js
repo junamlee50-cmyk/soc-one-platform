@@ -1,3 +1,4 @@
+import { assignmentConflict } from '../lib/referee-scope.js';
 import { DRAFT_RULES, validateRules } from '../lib/rules.js';
 import { apiHandler } from '../lib/http.js';
 import { listJson, getJson, putJson, clean, makeId, hash, now } from '../lib/blobdb.js';
@@ -73,7 +74,7 @@ async function handler(req,res){
     if(!reference||!reason)return res.status(400).json({ok:false,error:'payment_evidence_required'});
     if(reg.paymentStatus===status)return res.status(409).json({ok:false,error:'payment_status_unchanged'});
     if(['CANCELED','REFUNDED'].includes(reg.status))return res.status(409).json({ok:false,error:'registration_inactive'});
-    if(['REFUNDED','CANCELED'].includes(status)&&(await listJson('brackets/',1000,{tournamentId:reg.tournamentId})).some(x=>x.divisionKey===reg.divisionKey&&x.status==='PUBLISHED'))return res.status(409).json({ok:false,error:'published_bracket_requires_correction'});
+    if(status!=='PAID'&&(await listJson('brackets/',1000,{tournamentId:reg.tournamentId})).some(x=>x.divisionKey===reg.divisionKey&&x.status==='PUBLISHED'))return res.status(409).json({ok:false,error:'published_bracket_requires_correction'});
     if(status==='REFUNDED'&&!['PAID','REFUND_REQUESTED'].includes(reg.paymentStatus))return res.status(409).json({ok:false,error:'payment_not_refundable'});
     const before={...reg};if(['REFUNDED','CANCELED'].includes(status))reg.status=status;reg.paymentStatus=status;reg.paymentMethod='MANUAL';reg.paymentReason=reason;reg.updatedAt=now();reg.paymentUpdatedBy=user.id;reg.paymentReference=reference;reg.paymentUpdatedAt=now();await putJson('registrations/'+id+'.json',reg);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'PAYMENT_STATUS',entityType:'REGISTRATION',entityId:id,before,after:reg,reason,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,registration:reg});
   }
@@ -110,8 +111,28 @@ async function handler(req,res){
   }
 
   if(op==='referee-assignment'){
-    if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const b=req.body||{},refereeUserId=clean(b.refereeUserId,80),tournamentId=clean(b.tournamentId,80);if(!refereeUserId||!tournamentId||!Number.isInteger(Number(b.matNo))||Number(b.matNo)<1)return res.status(400).json({ok:false,error:'required_fields'});const referee=await getJson('users/'+refereeUserId+'.json'),tournament=await getJson('tournaments/'+tournamentId+'.json');if(!referee?.roles?.includes('REFEREE')||referee.status!=='ACTIVE'||!tournament)return res.status(400).json({ok:false,error:'invalid_assignment'});const row={id:makeId('rfa'),refereeUserId,tournamentId,matNo:Number(b.matNo)||null,session:clean(b.session,40),status:'ASSIGNED',assignedBy:user.id,createdAt:now()};await putJson('referee-assignments/'+row.id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,assignment:row});
+    const b=req.body||{},reason=clean(b.reason,500);
+    if(!reason)return res.status(400).json({ok:false,error:'change_reason_required'});
+    if(b.action==='REVOKE'){
+      const row=await getJson('referee-assignments/'+clean(b.assignmentId,80)+'.json');
+      if(!row)return res.status(404).json({ok:false,error:'assignment_not_found'});
+      if(row.status!=='ASSIGNED')return res.status(409).json({ok:false,error:'assignment_inactive'});
+      const before={...row};row.status='REVOKED';row.revokedAt=now();row.revokedBy=user.id;
+      await putJson('referee-assignments/'+row.id+'.json',row);
+      await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'REFEREE_ASSIGNMENT_REVOKED',entityType:'REFEREE_ASSIGNMENT',entityId:row.id,before,after:row,reason,createdAt:now()},{overwrite:false});
+      return res.status(200).json({ok:true,assignment:row});
+    }
+    const refereeUserId=clean(b.refereeUserId,80),tournamentId=clean(b.tournamentId,80),matNo=Number(b.matNo);
+    const start=Date.parse(b.startsAt),end=Date.parse(b.endsAt);
+    if(!refereeUserId||!tournamentId||!Number.isInteger(matNo)||matNo<1||!Number.isFinite(start)||!Number.isFinite(end)||end<=start)
+      return res.status(400).json({ok:false,error:'assignment_window_required'});
+    const referee=await getJson('users/'+refereeUserId+'.json'),tournament=await getJson('tournaments/'+tournamentId+'.json');
+    if(!referee?.roles?.includes('REFEREE')||referee.status!=='ACTIVE'||!tournament||tournament.deletedAt||['DRAFT','CANCELED','COMPLETED'].includes(tournament.status))return res.status(400).json({ok:false,error:'invalid_assignment'});
+    const row={id:makeId('rfa'),refereeUserId,tournamentId,matNo,startsAt:new Date(start).toISOString(),endsAt:new Date(end).toISOString(),session:clean(b.session,40),status:'ASSIGNED',assignedBy:user.id,createdAt:now()};
+    if(assignmentConflict(row,await listJson('referee-assignments/')))return res.status(409).json({ok:false,error:'assignment_schedule_conflict'});
+    await putJson('referee-assignments/'+row.id+'.json',row,{overwrite:false});
+    await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'REFEREE_ASSIGNED',entityType:'REFEREE_ASSIGNMENT',entityId:row.id,after:row,reason,createdAt:now()},{overwrite:false});
+    return res.status(201).json({ok:true,assignment:row});
   }
 
   if(op==='referee-assignments'){
