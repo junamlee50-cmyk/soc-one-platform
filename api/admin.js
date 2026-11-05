@@ -1,3 +1,4 @@
+import {currentBankSettings,validBankSettings,confirmManualPayment,paymentSummary} from '../lib/manual-payments.js';
 import { assignmentConflict } from '../lib/referee-scope.js';
 import { DRAFT_RULES, validateRules } from '../lib/rules.js';
 import { apiHandler } from '../lib/http.js';
@@ -20,7 +21,7 @@ async function handler(req,res){
   }
 
   const roleMap={
-    'rules':['ADMIN','CEO'],'overview':['STAFF','ADMIN','CEO'],'tournaments':['STAFF','ADMIN','CEO'],'academies':['STAFF','ADMIN','CEO'],
+    'payment-settings':['ADMIN','CEO'],'payment-ledger':['FINANCE','STAFF','ADMIN','CEO'],'rules':['ADMIN','CEO'],'overview':['STAFF','ADMIN','CEO'],'tournaments':['STAFF','ADMIN','CEO'],'academies':['STAFF','ADMIN','CEO'],
     'academy-status':['STAFF','ADMIN','CEO'],'registrations':['FINANCE','STAFF','ADMIN','CEO'],'payment-status':['FINANCE','STAFF','ADMIN','CEO'],
     'users':['STAFF','ADMIN','CEO'],'role':['CEO'],'audit':['ADMIN','CEO'],'support':['STAFF','ADMIN','CEO'],
     'training':['STAFF','FINANCE','ADMIN','CEO'],'training-settlement':['FINANCE','STAFF','ADMIN','CEO'],
@@ -44,8 +45,8 @@ async function handler(req,res){
 
   if(op==='overview'){
     const [users,academies,tournaments,regs,audit]=await Promise.all([listJson('users/',5000),listJson('academies/',2000),listJson('tournaments/',1000),listJson('registrations/',10000),listJson('audit/',3000)]);
-    const paid=regs.filter(x=>x.paymentStatus==='PAID').reduce((s,x)=>s+(Number(x.amount)||0),0);
-    return res.status(200).json({ok:true,overview:{members:users.filter(x=>x.status==='ACTIVE').length,athletes:users.filter(x=>(x.roles||[]).includes('ATHLETE')).length,coaches:users.filter(x=>(x.roles||[]).includes('COACH')).length,approvedAcademies:academies.filter(x=>x.status==='APPROVED').length,pendingAcademies:academies.filter(x=>x.status==='PENDING').length,tournaments:tournaments.filter(x=>!x.deletedAt).length,registrations:regs.length,paidRevenue:paid,auditEvents:audit.length}});
+    const cash=paymentSummary(await listJson('payment-ledger/'),regs);
+    return res.status(200).json({ok:true,overview:{members:users.filter(x=>x.status==='ACTIVE').length,athletes:users.filter(x=>(x.roles||[]).includes('ATHLETE')).length,coaches:users.filter(x=>(x.roles||[]).includes('COACH')).length,approvedAcademies:academies.filter(x=>x.status==='APPROVED').length,pendingAcademies:academies.filter(x=>x.status==='PENDING').length,tournaments:tournaments.filter(x=>!x.deletedAt).length,registrations:regs.length,received:cash.received,refunded:cash.refunded,netReceived:cash.netReceived,legacyUnreconciled:cash.legacyUnreconciled,auditEvents:audit.length}});
   }
 
   if(op==='tournaments'){
@@ -68,15 +69,29 @@ async function handler(req,res){
     const rows=(await listJson('registrations/',10000)).sort((a,b)=>String(b.registeredAt||'').localeCompare(String(a.registeredAt||'')));return res.status(200).json({ok:true,registrations:rows});
   }
 
+  if(op==='payment-settings'){
+    const previous=await currentBankSettings();
+    if(req.method==='GET')return res.status(200).json({ok:true,settings:previous});
+    const b=req.body||{},reason=clean(b.reason,500);
+    if(!reason)return res.status(400).json({ok:false,error:'change_reason_required'});
+    if(b.expectedVersion!==(previous?.version||0))return res.status(409).json({ok:false,error:'settings_version_conflict'});
+    const row={version:(previous?.version||0)+1,enabled:b.enabled===true,bankName:clean(b.bankName,80),accountNumber:clean(b.accountNumber,30),accountHolder:clean(b.accountHolder,80),instructions:clean(b.instructions,1000),paymentHours:Number(b.paymentHours),updatedBy:user.id,updatedAt:now()};
+    if(row.enabled&&!validBankSettings(row))return res.status(400).json({ok:false,error:'invalid_bank_settings'});
+    await putJson('system/bank-transfer.json',row);
+    await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'BANK_SETTINGS_CHANGED',entityType:'PAYMENT_SETTINGS',entityId:'bank-transfer',before:previous,after:row,reason,createdAt:now()},{overwrite:false});
+    return res.status(200).json({ok:true,settings:row});
+  }
+  if(op==='payment-ledger'){
+    const ledger=(await listJson('payment-ledger/')).sort((a,b)=>b.recordedAt.localeCompare(a.recordedAt));
+    const regs=await listJson('registrations/');
+    return res.status(200).json({ok:true,ledger,summary:paymentSummary(ledger,regs)});
+  }
   if(op==='payment-status'){
-    if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const b=req.body||{},id=clean(b.registrationId,80),status=clean(b.paymentStatus,30).toUpperCase();if(!['UNPAID','PENDING','PAID','REFUND_REQUESTED','REFUNDED','CANCELED'].includes(status))return res.status(400).json({ok:false,error:'invalid_status'});const reg=await getJson('registrations/'+id+'.json');if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});const reference=clean(b.reference,120),reason=clean(b.reason,500);
-    if(!reference||!reason)return res.status(400).json({ok:false,error:'payment_evidence_required'});
-    if(reg.paymentStatus===status)return res.status(409).json({ok:false,error:'payment_status_unchanged'});
-    if(['CANCELED','REFUNDED'].includes(reg.status))return res.status(409).json({ok:false,error:'registration_inactive'});
-    if(status!=='PAID'&&(await listJson('brackets/',1000,{tournamentId:reg.tournamentId})).some(x=>x.divisionKey===reg.divisionKey&&x.status==='PUBLISHED'))return res.status(409).json({ok:false,error:'published_bracket_requires_correction'});
-    if(status==='REFUNDED'&&!['PAID','REFUND_REQUESTED'].includes(reg.paymentStatus))return res.status(409).json({ok:false,error:'payment_not_refundable'});
-    const before={...reg};if(['REFUNDED','CANCELED'].includes(status))reg.status=status;reg.paymentStatus=status;reg.paymentMethod='MANUAL';reg.paymentReason=reason;reg.updatedAt=now();reg.paymentUpdatedBy=user.id;reg.paymentReference=reference;reg.paymentUpdatedAt=now();await putJson('registrations/'+id+'.json',reg);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'PAYMENT_STATUS',entityType:'REGISTRATION',entityId:id,before,after:reg,reason,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,registration:reg});
+    const b=req.body||{},reg=await getJson('registrations/'+clean(b.registrationId,80)+'.json');
+    if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});
+    const result=await confirmManualPayment(reg,b,user);
+    if(result.error)return res.status(result.status).json({ok:false,error:result.error});
+    return res.status(200).json({ok:true,registration:result.registration});
   }
 
   if(op==='users'){
@@ -86,7 +101,18 @@ async function handler(req,res){
 
   if(op==='role'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const b=req.body||{},userId=clean(b.userId,80),role=clean(b.role,30).toUpperCase(),action=clean(b.action,10).toUpperCase(),allowed=['ATHLETE','COACH','ACADEMY_ADMIN','COMMITTEE','REFEREE','STAFF','FINANCE','ADMIN'];if(!allowed.includes(role)||!['GRANT','REVOKE'].includes(action))return res.status(400).json({ok:false,error:'invalid_role_change'});const target=await getJson('users/'+userId+'.json');if(!target)return res.status(404).json({ok:false,error:'user_not_found'});const before={roles:[...(target.roles||[])],committeeRegion:target.committeeRegion||null};if(action==='GRANT')target.roles=[...new Set([...(target.roles||[]),role])];else target.roles=(target.roles||[]).filter(x=>x!==role);if(role==='COMMITTEE')target.committeeRegion=action==='GRANT'?clean(b.region,80):null;target.updatedAt=now();await putJson('users/'+target.id+'.json',target);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'ROLE_'+action,entityType:'USER',entityId:target.id,before,after:{roles:target.roles,committeeRegion:target.committeeRegion||null},createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,user:{id:target.id,socId:target.socId,name:target.name,roles:target.roles,committeeRegion:target.committeeRegion||null}});
+    const b=req.body||{},userId=clean(b.userId,80),role=clean(b.role,30).toUpperCase(),action=clean(b.action,10).toUpperCase(),reason=clean(b.reason,500);
+    const allowed=['ATHLETE','COACH','ACADEMY_ADMIN','COMMITTEE','REFEREE','STAFF','FINANCE','ADMIN'];
+    if(!allowed.includes(role)||!['GRANT','REVOKE'].includes(action))return res.status(400).json({ok:false,error:'invalid_role_change'});
+    if(!reason)return res.status(400).json({ok:false,error:'change_reason_required'});
+    if(role==='COMMITTEE'&&action==='GRANT'&&!clean(b.region,80))return res.status(400).json({ok:false,error:'committee_region_required'});
+    const target=await getJson('users/'+userId+'.json');if(!target)return res.status(404).json({ok:false,error:'user_not_found'});
+    const before={roles:[...(target.roles||[])],committeeRegion:target.committeeRegion||null};
+    if(action==='GRANT')target.roles=[...new Set([...(target.roles||[]),role])];else target.roles=(target.roles||[]).filter(x=>x!==role);
+    if(role==='COMMITTEE')target.committeeRegion=action==='GRANT'?clean(b.region,80):null;
+    target.updatedAt=now();target.authVersion=(target.authVersion||0)+1;await putJson('users/'+target.id+'.json',target);
+    await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'ROLE_'+action,entityType:'USER',entityId:target.id,before,after:{roles:target.roles,committeeRegion:target.committeeRegion||null},reason,createdAt:now()},{overwrite:false});
+    return res.status(200).json({ok:true,user:{id:target.id,socId:target.socId,name:target.name,roles:target.roles,committeeRegion:target.committeeRegion||null}});
   }
 
   if(op==='audit'){
@@ -107,7 +133,7 @@ async function handler(req,res){
 
   if(op==='training-settlement'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const b=req.body||{},id=clean(b.requestId,80),row=await getJson('training-requests/'+id+'.json');if(!row)return res.status(404).json({ok:false,error:'not_found'});const before={...row};row.settlementAmount=Number(b.amount)||0;row.settlementCurrency=clean(b.currency,3)||'KRW';row.settlementStatus=clean(b.status,20)||'PENDING';row.settlementUpdatedBy=user.id;row.updatedAt=now();await putJson('training-requests/'+id+'.json',row);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'TRAINING_SETTLEMENT',entityType:'TRAINING_REQUEST',entityId:id,before,after:row,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,request:row});
+    return res.status(409).json({ok:false,error:'training_settlement_not_configured',message:'협약·이용실적·정산조건·지급증빙 절차 설정 전에는 지급 완료로 처리할 수 없습니다.'});
   }
 
   if(op==='referee-assignment'){
@@ -156,6 +182,8 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "payment-settings": ["GET","POST"],
+  "payment-ledger": ["GET"],
   "rules": ["GET","POST"],
   "bootstrap": [
     "POST"

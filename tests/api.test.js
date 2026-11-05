@@ -1,3 +1,4 @@
+import {TEST_BANK} from './helpers/bank.js';
 import { TEST_RULES } from './helpers/rules.js';
 import { test, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
@@ -167,6 +168,7 @@ test('unauthenticated users and athletes cannot use management APIs',async()=>{
 });
 
 function tournament(overrides={}) {
+  put('system/bank-transfer.json',TEST_BANK);
   put('rules/TEST-RULES.json',TEST_RULES);
   put('tournaments/t1.json',{id:'t1',rulesId:'TEST-RULES',name:'Test Open',status:'REGISTRATION_OPEN',startAt:'2027-03-01T09:00:00+09:00',rankingMultiplier:1,fees:{early:0,regular:50000,late:60000,extra:10000},...overrides});
   put('divisions/d1.json',{id:'d1',tournamentId:'t1',gender:'MALE',ageMin:18,ageMax:40,key:'GI|ADULT|MALE|WHITE|70|WEIGHT',discipline:'GI',ageGroup:'ADULT',belt:'WHITE',weightClass:'70',weightLimitKg:70,active:true});
@@ -214,7 +216,7 @@ test('two-athlete flow: register, verify payment, check in, weigh, bracket, resu
     assert.equal((await call('member','ticket',{headers,query:{registrationId:registration.id}})).statusCode,409);
     let ticket={payload:'SOC:'+registration.id+':'+ticketSign(registration.id)};
     assert.equal((await call('ops','checkin',{method:'POST',headers:staff,body:{payload:ticket.payload}})).statusCode,409);
-    assert.equal((await call('admin','payment-status',{method:'POST',headers:staff,body:{registrationId:registration.id,paymentStatus:'PAID',reference:'TEST',reason:'Isolated automated verification'}})).statusCode,200);
+    assert.equal((await call('admin','payment-status',{method:'POST',headers:staff,body:{registrationId:registration.id,paymentStatus:'PAID',reference:'TEST-'+registration.id,reason:'Isolated automated verification',revision:0,amount:registration.amount,occurredAt:new Date().toISOString()}})).statusCode,200);
     ticket=(await call('member','ticket',{headers,query:{registrationId:registration.id}})).body.ticket;
     assert.equal((await call('ops','checkin',{method:'POST',headers:staff,body:{payload:ticket.payload}})).statusCode,200);
     assert.equal((await call('ops','checkin',{method:'POST',headers:staff,body:{payload:ticket.payload}})).statusCode,409);
@@ -293,7 +295,7 @@ test('published brackets lock new entries, payment downgrades, and reweighing',a
  put('brackets/locked.json',{id:'locked',tournamentId:'t1',divisionKey,status:'PUBLISHED'});
  put('registrations/r.json',{id:'r',tournamentId:'t1',divisionId:'d1',divisionKey,status:'REGISTERED',paymentStatus:'PAID',checkInStatus:'CHECKED_IN',weighInStatus:'PASSED'});
  assert.equal((await call('member','registrations',{method:'POST',headers:athlete,body:{tournamentId:'t1',divisionId:'d1'}})).body.error,'division_bracket_locked');
- for(const paymentStatus of ['UNPAID','PENDING','REFUND_REQUESTED','REFUNDED','CANCELED'])assert.equal((await call('admin','payment-status',{method:'POST',headers,body:{registrationId:'r',paymentStatus,reason:'test',reference:'test'}})).body.error,'published_bracket_requires_correction');
+ for(const paymentStatus of ['UNPAID','REFUNDED'])assert.equal((await call('admin','payment-status',{method:'POST',headers,body:{registrationId:'r',paymentStatus,reason:'test',reference:'test',revision:0}})).body.error,'published_bracket_requires_correction');
  assert.equal((await call('ops','weighin',{method:'POST',headers,body:{registrationId:'r',weightKg:75}})).body.error,'published_bracket_requires_correction');
  assert.equal(records.get('registrations/r.json').paymentStatus,'PAID');assert.equal(rows('weighins/').length,0);
 });

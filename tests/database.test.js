@@ -1,3 +1,4 @@
+import {TEST_BANK} from './helpers/bank.js';
 import { TEST_RULES } from './helpers/rules.js';
 import { test, beforeEach, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,7 +26,10 @@ const { putJson, getJson, listJson, hash }=await import('../lib/blobdb.js');
 const member=(await import('../api/member.js')).default;
 const ops=(await import('../api/ops.js')).default;
 const auth=(await import('../api/auth.js')).default;
+const admin=(await import('../api/admin.js')).default;
+const {totp,decryptSecret}=await import('../lib/mfa.js');
 await query(await readFile(new URL('../db/migrations/001_operational_records.sql',import.meta.url),'utf8'));
+await query(await readFile(new URL('../db/migrations/002_manual_payments.sql',import.meta.url),'utf8'));
 const seed=(path,value)=>putJson(path,value);
 const response=()=>({statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.statusCode=n;return this},json(body){this.body=body;return this},send(body){this.body=body;return this},end(){return this}});
 async function call(handler,op,userId,body={},method='POST'){
@@ -37,13 +41,122 @@ async function person(id,roles=['ATHLETE']){
  await seed('sessions/'+hash(id)+'.json',{userId:id,expiresAt:new Date(Date.now()+3600000).toISOString()});
 }
 async function fixture(capacity=10){
+ await seed('system/bank-transfer.json',TEST_BANK);
  await seed('rules/TEST-RULES.json',TEST_RULES);
  await person('a');await person('b');await person('staff',['STAFF']);
  await seed('tournaments/t.json',{id:'t',rulesId:'TEST-RULES',name:'SQL Test',status:'REGISTRATION_OPEN',startAt:'2027-02-01',fees:{regular:59000},rankingMultiplier:1});
  await seed('divisions/d.json',{id:'d',tournamentId:'t',gender:'MALE',ageMin:18,ageMax:40,key:'GI|ADULT|MALE|WHITE|70|WEIGHT',discipline:'GI',ageGroup:'ADULT',belt:'WHITE',weightClass:'70',capacity,weightLimitKg:70});
 }
-beforeEach(async()=>{await query('DELETE FROM soc_records');await query('DELETE FROM soc_auth_attempts');failPath=null;});
+beforeEach(async()=>{await query('TRUNCATE soc_records');await query('DELETE FROM soc_auth_attempts');failPath=null;});
 after(async()=>{await closePool();if(local)await local.close();});
+
+async function manualFixture(){await fixture();return (await call(member,'registrations','a',{tournamentId:'t',divisionId:'d'})).body.registration;}
+const receipt=(r,overrides={})=>({registrationId:r.id,paymentStatus:'PAID',revision:r.paymentRevision||0,amount:r.amount,occurredAt:new Date().toISOString(),reference:'BANK-TEST-'+r.id,reason:'Isolated bank reconciliation',...overrides});
+test('deposit report does not issue a ticket; staff receipt and full refund reconcile the ledger',async()=>{
+ const r=await manualFixture();
+ assert.equal((await call(member,'payment','b',{registrationId:r.id,revision:0,action:'REPORT_DEPOSIT'})).statusCode,404);
+ const report={registrationId:r.id,revision:0,action:'REPORT_DEPOSIT',amount:r.amount,depositorName:'Synthetic payer',occurredAt:new Date().toISOString(),paymentStatus:'PAID'};
+ assert.equal((await call(member,'payment','a',report)).body.registration.paymentStatus,'PENDING');
+ assert.equal((await call(member,'payment','a',report)).statusCode,409);
+ const pending=await getJson('registrations/'+r.id+'.json');
+ assert.equal((await call(admin,'payment-status','a',receipt(pending))).statusCode,403);
+ assert.equal((await call(admin,'payment-status','staff',receipt(pending,{amount:1}))).statusCode,400);
+ assert.equal((await listJson('payment-ledger/')).length,0);
+ const paid=await call(admin,'payment-status','staff',receipt(pending));assert.equal(paid.statusCode,200);assert.equal(paid.body.registration.paymentStatus,'PAID');
+ const request=await call(member,'payment','a',{registrationId:r.id,revision:2,action:'REQUEST_REFUND',reason:'Synthetic withdrawal'});assert.equal(request.statusCode,200);
+ const beforeRefund=(await call(admin,'overview','staff',{},'GET')).body.overview;
+ assert.equal(beforeRefund.netReceived,r.amount,'refund request is not a cash outflow');
+ assert.equal(beforeRefund.refunded,0);
+ const refunded=await call(admin,'payment-status','staff',receipt(request.body.registration,{paymentStatus:'REFUNDED',reference:'REFUND-TEST'}));assert.equal(refunded.statusCode,200);
+ assert.equal(refunded.body.registration.status,'REFUNDED');
+ const summary=(await call(admin,'payment-ledger','staff',{},'GET')).body.summary;
+ assert.equal(summary.received,r.amount);assert.equal(summary.refunded,r.amount);assert.equal(summary.netReceived,0);
+ assert.equal((await call(admin,'overview','staff',{},'GET')).body.overview.netReceived,0);
+ assert.equal((await listJson('audit/')).filter(a=>a.action==='MANUAL_PAYMENT_REFUNDED').length,1);
+});
+test('discounted additional entry cannot outlive or be paid before its base entry',async()=>{
+ const base=await manualFixture(),event=await getJson('tournaments/t.json');
+ event.fees.additionalDiscipline=29000;event.fees.absolute=25000;await seed('tournaments/t.json',event);
+ const division=await getJson('divisions/d.json');await seed('divisions/extra.json',{...division,id:'extra',discipline:'NO-GI',key:'NO-GI|ADULT|MALE|WHITE|70|WEIGHT'});
+ const extra=(await call(member,'registrations','a',{tournamentId:'t',divisionId:'extra'})).body.registration;
+ assert.equal(extra.amount,29000);assert.equal(extra.priceSnapshot.baseRegistrationId,base.id);
+ assert.equal((await call(admin,'payment-status','staff',receipt(extra))).body.error,'base_payment_required');
+ assert.equal((await call(member,'payment','a',{registrationId:base.id,revision:0,action:'CANCEL',reason:'Withdrawal'})).body.error,'dependent_registrations_active');
+ const paidBase=(await call(admin,'payment-status','staff',receipt(base))).body.registration;
+ const paidExtra=(await call(admin,'payment-status','staff',receipt(extra))).body.registration;
+ assert.equal(paidExtra.paymentStatus,'PAID');
+ assert.equal((await call(member,'payment','a',{registrationId:base.id,revision:1,action:'REQUEST_REFUND',reason:'Withdrawal'})).body.error,'dependent_registrations_active');
+ assert.equal((await call(admin,'payment-status','staff',receipt(paidBase,{paymentStatus:'REFUNDED',reference:'BASE-REFUND'}))).body.error,'dependent_registrations_active');
+ assert.equal((await call(admin,'payment-status','staff',receipt(paidExtra,{paymentStatus:'REFUNDED',reference:'EXTRA-REFUND'}))).statusCode,200);
+ assert.equal((await call(admin,'payment-status','staff',receipt(paidBase,{paymentStatus:'REFUNDED',reference:'BASE-REFUND'}))).statusCode,200);
+ assert.equal((await call(admin,'payment-ledger','staff',{},'GET')).body.summary.netReceived,0);
+});
+test('same bank evidence cannot pay two registrations concurrently or rewrite the ledger',async()=>{
+ const a=await manualFixture(),b=(await call(member,'registrations','b',{tournamentId:'t',divisionId:'d'})).body.registration;
+ const responses=await Promise.all([a,b].map(r=>call(admin,'payment-status','staff',receipt(r,{reference:'SHARED-REFERENCE'}))));
+ assert.deepEqual(responses.map(r=>r.statusCode).sort(),[200,409]);
+ const entries=await listJson('payment-ledger/');assert.equal(entries.length,1);
+ await assert.rejects(query("UPDATE soc_records SET value=value||'{\"amount\":1}' WHERE collection='payment-ledger'"),{code:'23514'});
+ await assert.rejects(query("DELETE FROM soc_records WHERE collection='payment-ledger'"),{code:'23514'});
+ assert.equal((await listJson('payment-ledger/'))[0].amount,a.amount);
+});
+test('receipt transaction rolls back on audit failure and retries consistently',async()=>{
+ const r=await manualFixture();
+ await query("ALTER TABLE soc_records ADD CONSTRAINT test_fail_payment CHECK (collection <> 'audit' OR value->>'action' <> 'MANUAL_PAYMENT_PAID')");
+ try{assert.equal((await call(admin,'payment-status','staff',receipt(r))).statusCode,503);}
+ finally{await query('ALTER TABLE soc_records DROP CONSTRAINT test_fail_payment');}
+ assert.equal((await listJson('payment-ledger/')).length,0);assert.equal((await getJson('registrations/'+r.id+'.json')).paymentStatus,'UNPAID');
+ assert.equal((await call(admin,'payment-status','staff',receipt(r))).statusCode,200);assert.equal((await listJson('payment-ledger/')).length,1);
+});
+test('account instructions are versioned, privileged, and preserved on existing registrations',async()=>{
+ const r=await manualFixture();await person('admin',['ADMIN']);
+ const body={...TEST_BANK,accountHolder:'Changed test holder',expectedVersion:1,reason:'Isolated change'};
+ assert.equal((await call(admin,'payment-settings','staff',body)).statusCode,403);
+ assert.equal((await call(admin,'payment-settings','admin',body)).statusCode,200);
+ assert.equal((await call(admin,'payment-settings','admin',body)).statusCode,409);
+ assert.equal((await getJson('registrations/'+r.id+'.json')).bankTransfer.accountHolder,TEST_BANK.accountHolder);
+ assert.equal((await call(member,'payment','a',{registrationId:r.id,revision:0,action:'CANCEL',reason:'No transfer made'})).statusCode,200);
+ assert.equal((await call(admin,'payment-status','staff',receipt(r,{revision:1}))).statusCode,409);
+});
+test('MFA enrollment, replay protection, single-use recovery, and session revocation work end to end',async()=>{
+ process.env.SOC_MFA_ENCRYPTION_KEY='cd'.repeat(32);
+ try{
+ const password='isolated-secure-password',registered=await call(auth,'register','',{name:'Security fixture',email:'security@example.test',password,consent:true});
+ const token=registered.headers['Set-Cookie'].split(';')[0].split('=')[1],userId=registered.body.user.id;
+ const start=await call(auth,'mfa-start',token,{currentPassword:password});assert.equal(start.statusCode,200);assert.match(start.body.qr,/^data:image\/png/);
+ const pending=await getJson('mfa-pending/'+userId+'.json'),secret=decryptSecret(pending.secret,userId),code=totp(secret);
+ const confirm=await call(auth,'mfa-confirm',token,{otp:code});assert.equal(confirm.statusCode,200);assert.equal(confirm.body.recoveryCodes.length,8);
+ assert.equal((await call(auth,'me',token,{},'GET')).statusCode,401);
+ assert.equal((await call(auth,'login','',{email:'security@example.test',password,otp:code})).statusCode,401);
+ const login=await call(auth,'login','',{email:'security@example.test',password,recoveryCode:confirm.body.recoveryCodes[0]});assert.equal(login.statusCode,200);
+ assert.equal((await call(auth,'login','',{email:'security@example.test',password,recoveryCode:confirm.body.recoveryCodes[0]})).statusCode,401);
+ const active=login.headers['Set-Cookie'].split(';')[0].split('=')[1];
+ const changed=await call(auth,'change-password',active,{currentPassword:password,newPassword:'changed-secure-password',recoveryCode:confirm.body.recoveryCodes[1]});assert.equal(changed.statusCode,200);
+ assert.equal((await call(auth,'me',active,{},'GET')).statusCode,401);
+ const latest=changed.headers['Set-Cookie'].split(';')[0].split('=')[1];assert.equal((await call(auth,'logout-all',latest)).statusCode,200);
+ assert.equal((await call(auth,'me',latest,{},'GET')).statusCode,401);
+ const stored=JSON.stringify(await listJson('mfa/'));for(const c of confirm.body.recoveryCodes)assert(!stored.includes(c));assert(!stored.includes(start.body.secret));
+ }finally{delete process.env.SOC_MFA_ENCRYPTION_KEY;}
+});
+test('production privileged access requires MFA setup before management requests',async()=>{
+ await fixture();process.env.VERCEL_ENV='production';
+ try{const r=await call(admin,'overview','staff',{},'GET');assert.equal(r.statusCode,403);assert.equal(r.body.error,'mfa_setup_required');assert.equal((await call(auth,'me','staff',{},'GET')).statusCode,200);}
+ finally{delete process.env.VERCEL_ENV;}
+});
+test('role changes require CEO reason and revoke the target previous sessions',async()=>{
+ await fixture();await person('ceo',['CEO']);
+ const body={userId:'a',role:'REFEREE',action:'GRANT',reason:'Verified isolated referee appointment'};
+ assert.equal((await call(admin,'role','staff',body)).statusCode,403);
+ assert.equal((await call(admin,'role','ceo',{...body,reason:''})).statusCode,400);
+ assert.equal((await call(admin,'role','ceo',body)).statusCode,200);
+ assert.equal((await call(auth,'me','a',{},'GET')).body.error,'session_revoked');
+ const audit=(await listJson('audit/')).find(a=>a.action==='ROLE_GRANT');assert.equal(audit.reason,body.reason);assert(audit.after.roles.includes('REFEREE'));
+});
+test('unconfigured training settlement cannot mark arbitrary amounts as paid',async()=>{
+ await fixture();await seed('training-requests/legacy.json',{id:'legacy',settlementStatus:'PENDING'});
+ const r=await call(admin,'training-settlement','staff',{requestId:'legacy',amount:-1000,status:'PAID'});
+ assert.equal(r.statusCode,409);assert.equal((await getJson('training-requests/legacy.json')).settlementStatus,'PENDING');
+});
 
 test('SQL rollback removes all writes after mid-operation failure',async()=>{
  await assert.rejects(inTransaction(async()=>{await seed('audit/a.json',{action:'TEST'});await seed('audit/b.json',{action:'TEST'});throw new Error('fail');}));
@@ -108,7 +221,7 @@ test('backup restore preserves SOC IDs and refuses nonempty or corrupt targets a
  assert.equal((await restoreSnapshot(snapshot)).count,1);
  assert.equal((await getJson('users/restored.json')).socId,'SOC-ORIGINAL');
  await assert.rejects(restoreSnapshot(snapshot),/restore_target_not_empty/);
- await query('DELETE FROM soc_records');
+ await query('TRUNCATE soc_records');
  await assert.rejects(restoreSnapshot({...snapshot,records:[...snapshot.records,{path:'bad/path/invalid.json',value:{id:'invalid'}}]}));
  assert.equal((await listJson('users/')).length,0);
 });

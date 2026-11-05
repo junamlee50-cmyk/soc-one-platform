@@ -1,3 +1,4 @@
+import {TEST_BANK} from './helpers/bank.js';
 // Isolated HTTPS browser test. Never connects to operational Blob or PostgreSQL.
 import {mock} from 'node:test';
 import {TEST_RULES} from './helpers/rules.js';
@@ -13,9 +14,10 @@ const chromiumBinary=(await import('@sparticuz/chromium')).default;
 const local=new PGlite();let tail=Promise.resolve();
 class Pool{async connect(){let unlock;const previous=tail;tail=new Promise(r=>unlock=r);await previous;return {query:(sql,args)=>!args?.length&&String(sql).includes(';')?local.exec(sql).then(r=>r.at(-1)):local.query(sql,args),release:unlock}}async query(sql,args){const c=await this.connect();try{return await c.query(sql,args)}finally{c.release()}}async end(){}}
 mock.module('pg',{defaultExport:{Pool}});
-process.env.SOC_DATA_BACKEND='postgres';process.env.DATABASE_URL='postgresql://isolated-browser-only';process.env.SOC_TICKET_SIGNING_KEY='isolated-browser-key-never-for-deployment';delete process.env.VERCEL_ENV;
+process.env.SOC_MFA_ENCRYPTION_KEY='ef'.repeat(32);process.env.SOC_DATA_BACKEND='postgres';process.env.DATABASE_URL='postgresql://isolated-browser-only';process.env.SOC_TICKET_SIGNING_KEY='isolated-browser-key-never-for-deployment';delete process.env.VERCEL_ENV;
 const {query}=await import('../lib/database.js');
 await query(await readFile('db/migrations/001_operational_records.sql','utf8'));
+await query(await readFile(new URL('../db/migrations/002_manual_payments.sql',import.meta.url),'utf8'));
 const handlers=Object.fromEntries(await Promise.all(['auth','auth/bootstrap','public','admin','member','ops'].map(async f=>[f,(await import('../api/'+f+'.js')).default])));
 const config=JSON.parse(await readFile('vercel.json','utf8'));
 const server=https.createServer({key:await readFile(process.env.SOC_TEST_TLS_KEY),cert:await readFile(process.env.SOC_TEST_TLS_CERT)},async(req,res)=>{
@@ -59,6 +61,22 @@ try{
  const event=(await query("SELECT value FROM soc_records WHERE collection='tournaments'")).rows[0].value;
  await seed('tournaments/'+event.id+'.json',{...event,status:'REGISTRATION_OPEN',rulesId:TEST_RULES.id});
  await seed('rules/'+TEST_RULES.id+'.json',TEST_RULES);
+ // Bank transfer: configure via admin UI, claim as athlete, confirm/refund as staff.
+ await desktop.goto(base+'/payments.html');await desktop.locator('#bankName').fill(TEST_BANK.bankName);await desktop.locator('#bankNumber').fill(TEST_BANK.accountNumber);await desktop.locator('#bankHolder').fill(TEST_BANK.accountHolder);await desktop.locator('#bankEnabled').check();await desktop.locator('#bankReason').fill('격리 시험 계좌');await desktop.getByRole('button',{name:'입금계좌 설정 저장',exact:true}).click();await desktop.waitForFunction(()=>paymentMsg.textContent==='입금계좌 설정을 저장했습니다.');
+ await page.goto(base+'/my-soc.html');await page.locator('#regName').fill('입금 시험 선수');await page.locator('#regEmail').fill('bank-browser@example.test');await page.locator('#regPassword').fill('isolated-bank-password');await page.locator('#regConsent').check();await page.getByRole('button',{name:'가입하고 SOC ID 발급'}).click();await page.locator('#memberArea').waitFor({state:'visible'});await page.getByRole('link',{name:'선수 APP',exact:true}).click();await page.locator('#pBirth').fill('2000-01-01');await page.locator('#pWeight').fill('69');await page.locator('#pGender').selectOption('MALE');await page.getByRole('button',{name:'프로필 저장'}).click();await page.waitForFunction(()=>profileMsg.textContent==='저장 완료');
+ await page.goto(base+'/competition.html');await page.locator('#regDivision option').first().waitFor({state:'attached'});await page.getByRole('button',{name:'참가신청',exact:true}).click();await page.waitForURL('**/payments.html?registrationId=*');await page.waitForFunction(()=>paymentDetails.textContent.includes('TEST ONLY BANK'));
+ const transferAt=new Date(Date.now()+9*3600000).toISOString().slice(0,16);
+ await page.locator('#claimName').fill('입금 시험 선수');await page.locator('#claimAt').fill(transferAt);await page.getByRole('button',{name:'입금했습니다 — 확인 요청',exact:true}).click();await page.waitForFunction(()=>paymentDetails.textContent.includes('운영자 확인 중'));assert(await page.locator('#paymentTicket').isHidden());assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'payments mobile overflow');
+ await desktop.getByRole('button',{name:'새로고침',exact:true}).click();await desktop.locator('#receiptAt').fill(transferAt);await desktop.locator('#receiptReference').fill('BROWSER-RECEIPT-001');await desktop.locator('#receiptReason').fill('격리 시험 입금 대조');await desktop.getByRole('button',{name:'대조한 거래 기록 저장',exact:true}).click();await desktop.waitForFunction(()=>paymentDetails.textContent.includes('입금 확인 완료'));
+ await page.getByRole('button',{name:'새로고침',exact:true}).click();await page.locator('#paymentTicket').waitFor({state:'visible'});
+ page.once('dialog',dialog=>dialog.accept('격리 시험 환불'));await page.getByRole('button',{name:'환불 요청',exact:true}).click();await page.waitForFunction(()=>paymentDetails.textContent.includes('환불 검토 중'));
+ await desktop.getByRole('button',{name:'새로고침',exact:true}).click();await desktop.waitForFunction(()=>paymentDetails.textContent.includes('환불 검토 중'));await desktop.locator('#receiptAction').selectOption('REFUNDED');await desktop.locator('#receiptReference').fill('BROWSER-REFUND-001');await desktop.getByRole('button',{name:'대조한 거래 기록 저장',exact:true}).click();await desktop.waitForFunction(()=>paymentDetails.textContent.includes('환불 기록 완료'));assert((await desktop.locator('#ledgerSummary').innerText()).includes('순입금 0원'));
+ // Enroll an authenticator, revoke sessions, and sign in with a single-use recovery code.
+ await desktop.goto(base+'/security.html');await desktop.locator('#mfaPassword').fill('isolated-browser-password');await desktop.getByRole('button',{name:'추가인증 등록 시작',exact:true}).click();await desktop.locator('#mfaEnrollment').waitFor({state:'visible'});
+ const {decryptSecret,totp}=await import('../lib/mfa.js');const pending=(await query("SELECT value FROM soc_records WHERE collection='mfa-pending'")).rows[0].value;
+ await desktop.locator('#mfaCode').fill(totp(decryptSecret(pending.secret,pending.userId)));await desktop.getByRole('button',{name:'추가인증 등록 완료',exact:true}).click();await desktop.waitForFunction(()=>recoveryCodes.textContent.includes('각 코드'));const recovery=(await desktop.locator('#recoveryCodes').innerText()).split('\n')[1];
+ await desktop.getByRole('button',{name:'현재 기기를 포함해 모두 로그아웃',exact:true}).click();await desktop.locator('#loginEmail').fill('browser@example.test');await desktop.locator('#loginPassword').fill('isolated-browser-password');await desktop.locator('#loginRecovery').fill(recovery);await desktop.getByRole('button',{name:'로그인',exact:true}).click();await desktop.locator('#memberArea').waitFor({state:'visible'});
+
  const divisionKey='GI|ADULT|MALE|WHITE|70|WEIGHT';
  await seed('brackets/browser-bracket.json',{id:'browser-bracket',tournamentId:event.id,status:'PUBLISHED',rankingPolicy:TEST_RULES,divisionKey,athleteCount:2,roundCount:1});
  await seed('athletes/browser-a.json',{userId:'browser-a',displayName:'브라우저 공개 선수',publicProfile:true});
@@ -76,8 +94,8 @@ try{
  await page.goto(base+'/athlete-app.html'); // logged out, route redirects to login
  await page.goto(base+'/ranking.html');await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
  const paths=await page.evaluate(async()=>{const names=await caches.keys();const keys=(await Promise.all(names.map(async n=>(await (await caches.open(n)).keys()).map(r=>new URL(r.url).pathname)))).flat();return keys});
- assert(!paths.some(p=>p.startsWith('/api/')||/admin|athlete-app|my-soc|certificate|setup/.test(p)));
+ assert(!paths.some(p=>p.startsWith('/api/')||/admin|athlete-app|my-soc|certificate|setup|payments|security/.test(p)));
  await context.setOffline(true);const offline=await page.evaluate(()=>SOC.post('/api/auth/login',{email:'none@example.test',password:'none'}));assert.equal(offline.ok,false);assert.equal(offline.error,'network_error');
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({ok:true,browser:'Chromium',views:['390x844','1365x900'],checks:['signup/login/logout','second-browser profile and SOC ID persistence','role denial','admin tournament and division creation','draft rules','match call/start/result UI','explicit bracket publication and privacy','live board mobile and desktop','offline board clears stale status','no horizontal overflow on athlete page','no sensitive SW cache','offline mutation failure'],productionDataUsed:false}));
+ console.log(JSON.stringify({ok:true,browser:'Chromium',views:['390x844','1365x900'],checks:['signup/login/logout','second-browser profile and SOC ID persistence','role denial','admin tournament and division creation','draft rules','bank account setup and deposit claim','staff receipt and refund ledger','MFA enrollment recovery and logout all','match call/start/result UI','explicit bracket publication and privacy','live board mobile and desktop','offline board clears stale status','no horizontal overflow on athlete page','no sensitive SW cache','offline mutation failure'],productionDataUsed:false}));
 }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));await local.close();}
