@@ -6,37 +6,39 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: soc-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: soc_test
+          POSTGRES_PASSWORD: isolated-ci-only
+          POSTGRES_DB: soc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U soc_test -d soc_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified in preceding run
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm install --ignore-scripts --no-audit --no-fund
-      - name: Validate JavaScript syntax
-        run: |
-          set -e
-          for f in api/*.js lib/*.js; do
-            echo "checking $f"
-            node --check "$f"
-          done
-      - name: Validate deployment shape
-        run: |
-          test "$(find api -maxdepth 1 -type f -name '*.js' | wc -l)" -le 12
-          test -f index.html
-          test -f my-soc.html
-          test -f athlete-app.html
-          test -f academy-app.html
-          test -f region-app.html
-          test -f referee-app.html
-          test -f ceo-app.html
-          test -f tournament-ops.html
-          test -f service-worker.js
-          test -f manifest.webmanifest
-      - name: Check forbidden demo API remnants
-        run: |
-          ! find api -mindepth 2 -type f -name '*.js' | grep .
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate routes, browser scripts, and API behavior
+        env:
+          TEST_DATABASE_URL: postgresql://soc_test:isolated-ci-only@localhost:5432/soc_test
+        run: npm run validate

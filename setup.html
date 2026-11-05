@@ -1,12 +1,14 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>SOC ONE 최초 설정</title><meta name="theme-color" content="#06080d"><link rel="icon" href="/favicon.svg"><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/assets/soc.css"></head><body><main class="appShell" style="max-width:720px"><div class="appTop"><a class="brand" href="/"><span class="brandmark">SOC</span><span class="brandcopy"><b>STATE OF CONTROL</b><span>ONE PLATFORM</span></span></a><span class="appBadge">ONE-TIME SETUP</span></div><div class="roleHero"><div class="kicker">SYSTEM INITIALIZATION</div><h1>대표이사 최고관리자 계정 생성</h1><p class="lead">이 페이지는 SOC ONE 최초 1회만 사용할 수 있습니다. 완료되면 같은 설정 링크는 자동으로 폐기됩니다.</p></div><div class="panel"><div class="notice">관리자 계정은 선수·관장·심판·지역위원·직원 권한을 부여하거나 회수할 수 있습니다. 비밀번호는 12자 이상으로 설정하십시오.</div><div class="formGrid" style="margin-top:18px"><div class="field full"><label>성명</label><input id="name" autocomplete="name" placeholder="대표이사 성명"></div><div class="field full"><label>이메일</label><input id="email" type="email" autocomplete="email" placeholder="대표자 이메일"></div><div class="field full"><label>비밀번호</label><input id="password" type="password" autocomplete="new-password" placeholder="12자 이상"></div><div class="field full"><label>비밀번호 확인</label><input id="password2" type="password" autocomplete="new-password" placeholder="비밀번호 재입력"></div></div><div class="heroCtas"><button class="btn gold" id="submit" onclick="setup()">최고관리자 계정 생성</button><a class="btn" href="/">취소</a></div><p id="out" class="small"></p></div></main><script src="/assets/soc.js"></script><script>
-const token=new URLSearchParams(location.search).get('token')||'';
+const token=new URLSearchParams(location.hash.slice(1)).get('token')||new URLSearchParams(location.search).get('token')||'';
+if(token)history.replaceState(null,'',location.pathname);
+const setupName=document.getElementById('name');
 async function setup(){
  const out=document.getElementById('out');
  if(!token){out.textContent='설정 토큰이 없습니다.';out.className='small danger';return;}
  if(password.value.length<12){out.textContent='비밀번호는 12자 이상이어야 합니다.';out.className='small danger';return;}
  if(password.value!==password2.value){out.textContent='비밀번호가 일치하지 않습니다.';out.className='small danger';return;}
  submit.disabled=true;out.textContent='최고관리자 계정을 생성하고 있습니다...';out.className='small';
- const d=await SOC.post('/api/auth/bootstrap',{token,name:name.value,email:email.value,password:password.value});
+ const d=await SOC.post('/api/auth/bootstrap',{token,name:setupName.value,email:email.value,password:password.value});
  if(d.ok){out.textContent='설정이 완료되었습니다. CEO 앱으로 이동합니다.';out.className='small success';setTimeout(()=>location.href='/ceo-app.html',700)}else{out.textContent=d.message||d.error||'설정에 실패했습니다.';out.className='small danger';submit.disabled=false;}
 }
 </script></body></html>

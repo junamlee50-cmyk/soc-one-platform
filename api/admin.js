@@ -1,14 +1,16 @@
+import { DRAFT_RULES, validateRules } from '../lib/rules.js';
+import { apiHandler } from '../lib/http.js';
 import { listJson, getJson, putJson, clean, makeId, hash, now } from '../lib/blobdb.js';
 import { requireUser } from '../lib/auth.js';
 
-export default async function handler(req,res){
+async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
 
   if(op==='bootstrap'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
     const b=req.body||{},key=typeof b.setupKey==='string'?b.setupKey:'';
     if(!process.env.SOC_ADMIN_SETUP_KEY||key!==process.env.SOC_ADMIN_SETUP_KEY)return res.status(403).json({ok:false,error:'invalid_setup_key'});
-    if(await getJson('system/admin-bootstrap.json'))return res.status(409).json({ok:false,error:'already_bootstrapped'});
+    if(await getJson('system/admin-bootstrap.json') || await getJson('system/bootstrap.json'))return res.status(409).json({ok:false,error:'already_bootstrapped'});
     const email=clean(b.email,255).toLowerCase();if(!email)return res.status(400).json({ok:false,error:'email_required'});
     const idx=await getJson('user-email/'+hash(email)+'.json');if(!idx)return res.status(404).json({ok:false,error:'user_not_found'});
     const user=await getJson('users/'+idx.userId+'.json');if(!user)return res.status(404).json({ok:false,error:'user_not_found'});
@@ -17,7 +19,7 @@ export default async function handler(req,res){
   }
 
   const roleMap={
-    'overview':['STAFF','ADMIN','CEO'],'tournaments':['STAFF','ADMIN','CEO'],'academies':['STAFF','ADMIN','CEO'],
+    'rules':['ADMIN','CEO'],'overview':['STAFF','ADMIN','CEO'],'tournaments':['STAFF','ADMIN','CEO'],'academies':['STAFF','ADMIN','CEO'],
     'academy-status':['STAFF','ADMIN','CEO'],'registrations':['FINANCE','STAFF','ADMIN','CEO'],'payment-status':['FINANCE','STAFF','ADMIN','CEO'],
     'users':['STAFF','ADMIN','CEO'],'role':['CEO'],'audit':['ADMIN','CEO'],'support':['STAFF','ADMIN','CEO'],
     'training':['STAFF','FINANCE','ADMIN','CEO'],'training-settlement':['FINANCE','STAFF','ADMIN','CEO'],
@@ -25,6 +27,19 @@ export default async function handler(req,res){
     'sponsors':['STAFF','FINANCE','ADMIN','CEO'],'content':['STAFF','ADMIN','CEO']
   };
   const user=await requireUser(req,res,roleMap[op]||['ADMIN','CEO']);if(!user)return;
+
+  if(op==='rules'){
+    if(req.method==='GET')return res.status(200).json({ok:true,template:DRAFT_RULES,rules:await listJson('rules/')});
+    if(!(user.roles||[]).includes('CEO'))return res.status(403).json({ok:false,error:'ceo_approval_required'});
+    const b=req.body||{},error=validateRules(b);
+    if(error)return res.status(400).json({ok:false,error});
+    const reason=clean(b.reason,500);
+    if(!reason||(b.status==='APPROVED'&&b.approvalAcknowledged!==true))return res.status(400).json({ok:false,error:'explicit_rules_approval_required'});
+    const id=makeId('rule'),rule={id,version:b.version,status:b.status,participation:b.participation,win:b.win,bestEvents:b.bestEvents,medals:b.medals,bracketFactors:b.bracketFactors,reason,createdBy:user.id,createdAt:now()};
+    await putJson('rules/'+id+'.json',rule,{overwrite:false});
+    await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'RULES_'+rule.status,entityType:'RULES',entityId:id,after:rule,reason,createdAt:now()},{overwrite:false});
+    return res.status(201).json({ok:true,rule});
+  }
 
   if(op==='overview'){
     const [users,academies,tournaments,regs,audit]=await Promise.all([listJson('users/',5000),listJson('academies/',2000),listJson('tournaments/',1000),listJson('registrations/',10000),listJson('audit/',3000)]);
@@ -54,7 +69,13 @@ export default async function handler(req,res){
 
   if(op==='payment-status'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const b=req.body||{},id=clean(b.registrationId,80),status=clean(b.paymentStatus,30).toUpperCase();if(!['UNPAID','PENDING','PAID','REFUND_REQUESTED','REFUNDED','CANCELED'].includes(status))return res.status(400).json({ok:false,error:'invalid_status'});const reg=await getJson('registrations/'+id+'.json');if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});const before={...reg};reg.paymentStatus=status;reg.updatedAt=now();reg.paymentUpdatedBy=user.id;reg.paymentReference=clean(b.reference,120);await putJson('registrations/'+id+'.json',reg);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'PAYMENT_STATUS',entityType:'REGISTRATION',entityId:id,before,after:reg,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,registration:reg});
+    const b=req.body||{},id=clean(b.registrationId,80),status=clean(b.paymentStatus,30).toUpperCase();if(!['UNPAID','PENDING','PAID','REFUND_REQUESTED','REFUNDED','CANCELED'].includes(status))return res.status(400).json({ok:false,error:'invalid_status'});const reg=await getJson('registrations/'+id+'.json');if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});const reference=clean(b.reference,120),reason=clean(b.reason,500);
+    if(!reference||!reason)return res.status(400).json({ok:false,error:'payment_evidence_required'});
+    if(reg.paymentStatus===status)return res.status(409).json({ok:false,error:'payment_status_unchanged'});
+    if(['CANCELED','REFUNDED'].includes(reg.status))return res.status(409).json({ok:false,error:'registration_inactive'});
+    if(['REFUNDED','CANCELED'].includes(status)&&(await listJson('brackets/',1000,{tournamentId:reg.tournamentId})).some(x=>x.divisionKey===reg.divisionKey&&x.status==='PUBLISHED'))return res.status(409).json({ok:false,error:'published_bracket_requires_correction'});
+    if(status==='REFUNDED'&&!['PAID','REFUND_REQUESTED'].includes(reg.paymentStatus))return res.status(409).json({ok:false,error:'payment_not_refundable'});
+    const before={...reg};if(['REFUNDED','CANCELED'].includes(status))reg.status=status;reg.paymentStatus=status;reg.paymentMethod='MANUAL';reg.paymentReason=reason;reg.updatedAt=now();reg.paymentUpdatedBy=user.id;reg.paymentReference=reference;reg.paymentUpdatedAt=now();await putJson('registrations/'+id+'.json',reg);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'PAYMENT_STATUS',entityType:'REGISTRATION',entityId:id,before,after:reg,reason,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,registration:reg});
   }
 
   if(op==='users'){
@@ -74,7 +95,7 @@ export default async function handler(req,res){
 
   if(op==='support'){
     if(req.method==='GET')return res.status(200).json({ok:true,applications:await listJson('support-applications/',5000)});
-    if(req.method==='POST'){const b=req.body||{},id=clean(b.applicationId,80),row=await getJson('support-applications/'+id+'.json');if(!row)return res.status(404).json({ok:false,error:'not_found'});const c={competition:Number(b.competition)||0,external:Number(b.external)||0,growth:Number(b.growth)||0,activity:Number(b.activity)||0,compliance:Number(b.compliance)||0,media:Number(b.media)||0};if(c.competition>45||c.external>20||c.growth>10||c.activity>10||c.compliance>10||c.media>5)return res.status(400).json({ok:false,error:'score_out_of_range'});const before={...row};row.components=c;row.score=Object.values(c).reduce((s,x)=>s+x,0);row.status=clean(b.status,30)||'SCORED';row.selected=Boolean(b.selected);row.reviewedBy=user.id;row.updatedAt=now();await putJson('support-applications/'+id+'.json',row);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'SUPPORT_REVIEW',entityType:'SUPPORT_APPLICATION',entityId:id,before,after:row,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,application:row});}
+    if(req.method==='POST'){const b=req.body||{},id=clean(b.applicationId,80),row=await getJson('support-applications/'+id+'.json');if(!row)return res.status(404).json({ok:false,error:'not_found'});const c={competition:Number(b.competition)||0,external:Number(b.external)||0,growth:Number(b.growth)||0,activity:Number(b.activity)||0,compliance:Number(b.compliance)||0,media:Number(b.media)||0};if(Object.values(c).some(x=>!Number.isFinite(x)||x<0)||c.competition>45||c.external>20||c.growth>10||c.activity>10||c.compliance>10||c.media>5)return res.status(400).json({ok:false,error:'score_out_of_range'});if(b.selected===true||!['DRAFT_SCORED',undefined].includes(b.status))return res.status(409).json({ok:false,error:'support_selection_policy_not_approved'});const before={...row};row.components=c;row.score=Object.values(c).reduce((s,x)=>s+x,0);row.status='DRAFT_SCORED';row.selected=false;row.reviewedBy=user.id;row.updatedAt=now();await putJson('support-applications/'+id+'.json',row);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'SUPPORT_REVIEW',entityType:'SUPPORT_APPLICATION',entityId:id,before,after:row,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,application:row});}
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
 
@@ -90,7 +111,7 @@ export default async function handler(req,res){
 
   if(op==='referee-assignment'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const b=req.body||{},refereeUserId=clean(b.refereeUserId,80),tournamentId=clean(b.tournamentId,80);if(!refereeUserId||!tournamentId)return res.status(400).json({ok:false,error:'required_fields'});const row={id:makeId('rfa'),refereeUserId,tournamentId,matNo:Number(b.matNo)||null,session:clean(b.session,40),status:'ASSIGNED',assignedBy:user.id,createdAt:now()};await putJson('referee-assignments/'+row.id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,assignment:row});
+    const b=req.body||{},refereeUserId=clean(b.refereeUserId,80),tournamentId=clean(b.tournamentId,80);if(!refereeUserId||!tournamentId||!Number.isInteger(Number(b.matNo))||Number(b.matNo)<1)return res.status(400).json({ok:false,error:'required_fields'});const referee=await getJson('users/'+refereeUserId+'.json'),tournament=await getJson('tournaments/'+tournamentId+'.json');if(!referee?.roles?.includes('REFEREE')||referee.status!=='ACTIVE'||!tournament)return res.status(400).json({ok:false,error:'invalid_assignment'});const row={id:makeId('rfa'),refereeUserId,tournamentId,matNo:Number(b.matNo)||null,session:clean(b.session,40),status:'ASSIGNED',assignedBy:user.id,createdAt:now()};await putJson('referee-assignments/'+row.id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,assignment:row});
   }
 
   if(op==='referee-assignments'){
@@ -112,3 +133,61 @@ export default async function handler(req,res){
 
   return res.status(404).json({ok:false,error:'unknown_admin_operation'});
 }
+
+export default apiHandler(handler, {
+  "rules": ["GET","POST"],
+  "bootstrap": [
+    "POST"
+  ],
+  "overview": [
+    "GET"
+  ],
+  "tournaments": [
+    "GET"
+  ],
+  "academies": [
+    "GET"
+  ],
+  "academy-status": [
+    "POST"
+  ],
+  "registrations": [
+    "GET"
+  ],
+  "payment-status": [
+    "POST"
+  ],
+  "users": [
+    "GET"
+  ],
+  "role": [
+    "POST"
+  ],
+  "audit": [
+    "GET"
+  ],
+  "support": [
+    "GET",
+    "POST"
+  ],
+  "training": [
+    "GET"
+  ],
+  "training-settlement": [
+    "POST"
+  ],
+  "referee-assignment": [
+    "POST"
+  ],
+  "referee-assignments": [
+    "GET"
+  ],
+  "sponsors": [
+    "GET",
+    "POST"
+  ],
+  "content": [
+    "GET",
+    "POST"
+  ]
+});

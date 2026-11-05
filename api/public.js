@@ -1,11 +1,14 @@
+import { validateTournament, validateDivision } from '../lib/configuration.js';
+import { seasonRanking, DEFAULT_SEASON } from '../lib/ranking.js';
+import { apiHandler } from '../lib/http.js';
 import { listJson, putJson, getJson, clean, makeId, now } from '../lib/blobdb.js';
 import { requireUser } from '../lib/auth.js';
 
-export default async function handler(req,res){
+async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
 
   if(op==='health'){
-    return res.status(200).json({ok:true,service:'SOC ONE',environment:process.env.VERCEL_ENV||'unknown',timestamp:new Date().toISOString(),version:'1.0.0-prelaunch'});
+    return res.status(200).json({ok:true,service:'SOC ONE',environment:process.env.VERCEL_ENV||'unknown',timestamp:new Date().toISOString(),version:'1.0.1-prelaunch',commit:process.env.VERCEL_GIT_COMMIT_SHA||null});
   }
 
   if(op==='academies'){
@@ -32,8 +35,13 @@ export default async function handler(req,res){
       const user=await requireUser(req,res,['STAFF','ADMIN','CEO']);if(!user)return;
       const b=req.body||{},name=clean(b.name,180),level=clean(b.level,30),venueName=clean(b.venueName,180),startAt=clean(b.startAt,40);
       if(!name||!level||!startAt)return res.status(400).json({ok:false,error:'required_fields'});
-      const id=makeId('trn');const row={id,name,level,venueName,venueAddress:clean(b.venueAddress,300),countryCode:clean(b.countryCode,2)||'KR',startAt,registrationOpenAt:clean(b.registrationOpenAt,40),earlyUntil:clean(b.earlyUntil,40),regularUntil:clean(b.regularUntil,40),registrationCloseAt:clean(b.registrationCloseAt,40),status:clean(b.status,30)||'DRAFT',rankingMultiplier:Number(b.rankingMultiplier)||1,fees:{early:Number(b.earlyFee)||0,regular:Number(b.regularFee)||0,late:Number(b.lateFee)||0,extra:Number(b.extraFee)||0},createdBy:user.id,createdAt:now(),updatedAt:now()};
-      await putJson('tournaments/'+id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,tournament:row});
+      const id=clean(b.id,80)||makeId('trn'),prev=b.id?await getJson('tournaments/'+id+'.json'):null;if(b.id&&!prev)return res.status(404).json({ok:false,error:'tournament_not_found'});const row={id,name,level,rulesId:clean(b.rulesId,80),venueName,venueAddress:clean(b.venueAddress,300),countryCode:clean(b.countryCode,2)||'KR',startAt,registrationOpenAt:clean(b.registrationOpenAt,40),earlyUntil:clean(b.earlyUntil,40),regularUntil:clean(b.regularUntil,40),registrationCloseAt:clean(b.registrationCloseAt,40),status:clean(b.status,30)||'DRAFT',rankingMultiplier:b.rankingMultiplier==null?1:Number(b.rankingMultiplier),discounts:b.discounts||[],fees:{early:Number(b.earlyFee),regular:Number(b.regularFee),late:Number(b.lateFee),additionalDiscipline:b.additionalDisciplineFee==null?null:Number(b.additionalDisciplineFee),absolute:b.absoluteFee==null?null:Number(b.absoluteFee)},createdBy:prev?.createdBy||user.id,createdAt:prev?.createdAt||now(),updatedAt:now()};
+      const error=validateTournament(row);if(error)return res.status(400).json({ok:false,error});
+      if(prev&&(row.rulesId!==prev.rulesId||row.rankingMultiplier!==prev.rankingMultiplier)&&(await listJson('brackets/',1000,{tournamentId:id})).length)return res.status(409).json({ok:false,error:'rules_locked_after_bracket'});
+      const reason=clean(b.reason,500);if(prev&&!reason)return res.status(400).json({ok:false,error:'change_reason_required'});
+      await putJson('tournaments/'+id+'.json',row,{overwrite:!!prev});
+      await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:prev?'TOURNAMENT_UPDATED':'TOURNAMENT_CREATED',entityType:'TOURNAMENT',entityId:id,before:prev,after:row,reason,createdAt:now()},{overwrite:false});
+      return res.status(prev?200:201).json({ok:true,tournament:row});
     }
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
@@ -46,19 +54,28 @@ export default async function handler(req,res){
       const u=await requireUser(req,res,['STAFF','ADMIN','CEO']);if(!u)return;
       const b=req.body||{},tournamentId=clean(b.tournamentId,80),discipline=clean(b.discipline,20),ageGroup=clean(b.ageGroup,30),belt=clean(b.belt,20),weightClass=clean(b.weightClass,40);
       if(!tournamentId||!discipline||!ageGroup||!belt||!weightClass)return res.status(400).json({ok:false,error:'required_fields'});
-      const id=makeId('div'),key=[discipline,ageGroup,belt,weightClass,Boolean(b.absolute)?'ABS':'WEIGHT'].join('|');
-      const row={id,tournamentId,key,discipline,ageGroup,belt,gender:clean(b.gender,20),weightClass,weightLimitKg:Number(b.weightLimitKg)||null,absolute:Boolean(b.absolute),active:true,createdBy:u.id,createdAt:now()};
+      const tournament=await getJson('tournaments/'+tournamentId+'.json');if(!tournament||tournament.deletedAt)return res.status(404).json({ok:false,error:'tournament_not_found'});
+      const id=makeId('div'),key=[discipline,ageGroup,clean(b.gender,20),belt,weightClass,Boolean(b.absolute)?'ABS':'WEIGHT'].join('|');
+      const row={id,tournamentId,key,discipline,ageGroup,belt,capacity:b.capacity?Number(b.capacity):null,ageMin:b.ageMin!==undefined?Number(b.ageMin):null,ageMax:b.ageMax!==undefined?Number(b.ageMax):null,ageReferenceDate:clean(b.ageReferenceDate,10),gender:clean(b.gender,20),weightClass,weightLimitKg:Number(b.weightLimitKg)||null,absolute:Boolean(b.absolute),active:true,createdBy:u.id,createdAt:now()};
+      const error=validateDivision(row);if(error)return res.status(400).json({ok:false,error});
+      if((await listJson('divisions/',1000,{tournamentId})).some(d=>d.key===key&&d.active!==false))return res.status(409).json({ok:false,error:'division_exists'});
       await putJson('divisions/'+id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,division:row});
     }
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
 
   if(op==='ranking'){
-    const events=await listJson('ranking-events/',10000);const sums=new Map();
-    for(const e of events){const k=e.athleteUserId;if(!k)continue;const x=sums.get(k)||{athleteUserId:k,points:0,wins:0,medals:0};x.points+=Number(e.finalPoints)||0;if(e.type==='WIN')x.wins++;if(['BRONZE','SILVER','GOLD','ABS_BRONZE','ABS_SILVER','ABS_GOLD'].includes(e.type))x.medals++;sums.set(k,x);}
-    const ranked=[...sums.values()].sort((a,b)=>b.points-a.points),rows=[];
-    for(const x of ranked){const p=await getJson('athletes/'+x.athleteUserId+'.json');if(!p?.publicProfile)continue;rows.push({...x,rank:rows.length+1,name:p.displayName,academy:p.academyName,belt:p.belt,weight:p.defaultWeightKg?String(p.defaultWeightKg)+'kg':''});}
-    return res.status(200).json({ok:true,season:'2027',ranking:rows});
+    const season=String(req.query.season||DEFAULT_SEASON);
+    if(!/^\d{4}$/.test(season))return res.status(400).json({ok:false,error:'invalid_season'});
+    const [events,tournaments]=await Promise.all([listJson('ranking-events/',10000),listJson('tournaments/',1000)]);
+    const visible=[];
+    for(const athleteId of new Set(events.map(e=>e.athleteUserId))){const profile=await getJson('athletes/'+athleteId+'.json');if(profile?.publicProfile)visible.push([athleteId,profile]);}
+    const profiles=new Map(visible);
+    const rows=seasonRanking(events.filter(e=>profiles.has(e.athleteUserId)),tournaments,season).map(x=>{const p=profiles.get(x.athleteUserId);return {...x,name:p.displayName,academy:p.academyName,belt:p.belt,weight:p.defaultWeightKg?String(p.defaultWeightKg)+'kg':''};});
+    const classified=rows.filter(x=>x.categoryKey.split('|').length===6);
+    const categories=[...new Set(classified.map(x=>x.categoryKey))];
+    const category=String(req.query.category||'');
+    return res.status(200).json({ok:true,season,categories,category,ranking:classified.filter(x=>x.categoryKey===category),unclassifiedCount:rows.length-classified.length});
   }
 
   if(op==='content'){
@@ -74,3 +91,30 @@ export default async function handler(req,res){
 
   return res.status(404).json({ok:false,error:'unknown_public_operation'});
 }
+
+export default apiHandler(handler, {
+  "health": [
+    "GET"
+  ],
+  "academies": [
+    "GET",
+    "POST"
+  ],
+  "tournaments": [
+    "GET",
+    "POST"
+  ],
+  "divisions": [
+    "GET",
+    "POST"
+  ],
+  "ranking": [
+    "GET"
+  ],
+  "content": [
+    "GET"
+  ],
+  "verify-cert": [
+    "GET"
+  ]
+});

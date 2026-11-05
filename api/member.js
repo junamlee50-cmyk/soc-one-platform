@@ -1,11 +1,14 @@
+import { registrationPrice, eligibility } from '../lib/registration.js';
+import { seasonRanking, DEFAULT_SEASON } from '../lib/ranking.js';
+import { apiHandler } from '../lib/http.js';
 import crypto from 'node:crypto';
 import QRCode from 'qrcode';
 import { listJson, putJson, getJson, clean, makeId, now } from '../lib/blobdb.js';
 import { requireUser } from '../lib/auth.js';
 
-const ticketSign=id=>crypto.createHmac('sha256',process.env.SOC_TICKET_SIGNING_KEY||'').update(id).digest('base64url').slice(0,24);
+import { ticketSign, signingKey } from '../lib/tickets.js';
 
-export default async function handler(req,res){
+async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
 
   if(op==='athlete'){
@@ -13,9 +16,9 @@ export default async function handler(req,res){
     const path='athletes/'+user.id+'.json';
     if(req.method==='GET')return res.status(200).json({ok:true,athlete:await getJson(path)});
     if(req.method==='POST'||req.method==='PUT'){
-      const b=req.body||{},prev=await getJson(path);let academyId=clean(b.academyId,80)||prev?.academyId||'',academyName=prev?.academyName||'';
+      const b=req.body||{},prev=await getJson(path);let academyId=b.academyId===undefined?(prev?.academyId||''):clean(b.academyId,80),academyName=prev?.academyName||'';
       if(academyId){const a=await getJson('academies/'+academyId+'.json');if(!a||a.status!=='APPROVED'||a.active===false)return res.status(400).json({ok:false,error:'academy_not_approved'});academyName=a.name;}else academyName='';
-      const row={userId:user.id,socId:user.socId,displayName:clean(b.displayName,80)||prev?.displayName||user.name,belt:clean(b.belt,20)||prev?.belt||'WHITE',gender:clean(b.gender,20)||prev?.gender||'',defaultWeightKg:Number(b.defaultWeightKg)||prev?.defaultWeightKg||null,academyId,academyName,publicProfile:Boolean(b.publicProfile),countryCode:clean(b.countryCode,2)||prev?.countryCode||'KR',status:prev?.status||'REGISTERED',createdAt:prev?.createdAt||now(),updatedAt:now()};
+      const row={userId:user.id,socId:user.socId,birthDate:clean(b.birthDate,10)||prev?.birthDate||null,displayName:clean(b.displayName,80)||prev?.displayName||user.name,belt:clean(b.belt,20)||prev?.belt||'WHITE',gender:clean(b.gender,20)||prev?.gender||'',defaultWeightKg:Number(b.defaultWeightKg)||prev?.defaultWeightKg||null,academyId,academyName,publicProfile:Boolean(b.publicProfile),countryCode:clean(b.countryCode,2)||prev?.countryCode||'KR',status:prev?.status||'REGISTERED',createdAt:prev?.createdAt||now(),updatedAt:now()};
       await putJson(path,row);return res.status(prev?200:201).json({ok:true,athlete:row});
     }
     res.setHeader('Allow','GET, POST, PUT');return res.status(405).json({ok:false,error:'method_not_allowed'});
@@ -28,12 +31,27 @@ export default async function handler(req,res){
       if(!(user.roles||[]).includes('ATHLETE'))return res.status(403).json({ok:false,error:'athlete_role_required'});
       const b=req.body||{},tournamentId=clean(b.tournamentId,80),divisionId=clean(b.divisionId,80);if(!tournamentId||!divisionId)return res.status(400).json({ok:false,error:'tournament_and_division_required'});
       const trn=await getJson('tournaments/'+tournamentId+'.json');if(!trn)return res.status(404).json({ok:false,error:'tournament_not_found'});
+      if(trn.deletedAt||trn.status!=='REGISTRATION_OPEN')return res.status(409).json({ok:false,error:'registration_not_open'});
+      const opens=trn.registrationOpenAt?Date.parse(trn.registrationOpenAt):null;
+      const closes=trn.registrationCloseAt?Date.parse(trn.registrationCloseAt):null;
+      const earlyEnd=trn.earlyUntil?Date.parse(trn.earlyUntil):null;
+      const regularEnd=trn.regularUntil?Date.parse(trn.regularUntil):null;
+      if([opens,closes,earlyEnd,regularEnd].some(x=>x!==null&&!Number.isFinite(x)))return res.status(409).json({ok:false,error:'invalid_registration_schedule'});
+      if(opens!==null&&Date.now()<opens)return res.status(409).json({ok:false,error:'registration_not_started'});
+      if(closes!==null&&Date.now()>=closes)return res.status(409).json({ok:false,error:'registration_closed'});
       const div=await getJson('divisions/'+divisionId+'.json');if(!div||div.tournamentId!==tournamentId||div.active===false)return res.status(404).json({ok:false,error:'division_not_found'});
-      const existing=(await listJson('registrations/',3000)).find(x=>x.userId===user.id&&x.tournamentId===tournamentId&&x.divisionId===divisionId&&!['CANCELED','REFUNDED'].includes(x.status));if(existing)return res.status(409).json({ok:false,error:'duplicate_registration',registration:existing});
-      const n=new Date(),early=trn.earlyUntil?new Date(trn.earlyUntil):null,regular=trn.regularUntil?new Date(trn.regularUntil):null,close=trn.registrationCloseAt?new Date(trn.registrationCloseAt):null;if(close&&n>close)return res.status(400).json({ok:false,error:'registration_closed'});
-      let phase='REGULAR',amount=Number(trn.fees?.regular)||0;if(early&&n<=early){phase='EARLY';amount=Number(trn.fees?.early)||amount;}else if(regular&&n>regular){phase='LATE';amount=Number(trn.fees?.late)||amount;}if(div.absolute)amount+=Number(trn.fees?.extra)||0;
-      const id=makeId('reg'),profile=await getJson('athletes/'+user.id+'.json');
-      const row={id,tournamentId,divisionId,userId:user.id,socId:user.socId,athleteName:profile?.displayName||user.name,academyId:profile?.academyId||'',discipline:div.discipline,ageGroup:div.ageGroup,belt:div.belt,weightClass:div.weightClass,divisionKey:div.key,absolute:!!div.absolute,status:'REGISTERED',paymentStatus:'UNPAID',pricingPhase:phase,amount,registeredAt:now(),updatedAt:now()};
+      const existing=(await listJson('registrations/',3000,{userId:user.id,tournamentId,divisionId})).find(x=>x.userId===user.id&&x.tournamentId===tournamentId&&x.divisionId===divisionId&&!['CANCELED','REFUNDED'].includes(x.status));if(existing)return res.status(409).json({ok:false,error:'duplicate_registration',registration:existing});
+      if(div.capacity!=null){const capacity=Number(div.capacity);if(!Number.isInteger(capacity)||capacity<1)return res.status(409).json({ok:false,error:'invalid_capacity'});const active=(await listJson('registrations/',3000,{tournamentId,divisionId})).filter(x=>!['CANCELED','REFUNDED'].includes(x.status));if(active.length>=capacity)return res.status(409).json({ok:false,error:'division_full'});}
+      const profile=await getJson('athletes/'+user.id+'.json');
+      const guardian=await getJson('guardian-consents/'+user.id+'.json');
+      const eligibilityError=eligibility(profile,div,trn,guardian);
+      if(eligibilityError)return res.status(409).json({ok:false,error:eligibilityError});
+      if(profile.academyId){const academy=await getJson('academies/'+profile.academyId+'.json');if(!academy||academy.status!=='APPROVED'||academy.active===false)return res.status(409).json({ok:false,error:'academy_not_approved'});}
+      const other=(await listJson('registrations/',3000,{userId:user.id,tournamentId}));
+      const price=registrationPrice(trn,div,other,clean(b.discountCode,60));
+      if(price.error)return res.status(409).json({ok:false,error:price.error});
+      const {amount,phase}=price,id=makeId('reg');
+      const row={id,tournamentId,divisionId,userId:user.id,socId:user.socId,athleteName:profile?.displayName||user.name,academyId:profile?.academyId||'',discipline:div.discipline,ageGroup:div.ageGroup,belt:div.belt,weightClass:div.weightClass,divisionKey:div.key,gender:div.gender,absolute:!!div.absolute,priceSnapshot:price,status:'REGISTERED',paymentStatus:'UNPAID',pricingPhase:phase,amount,registeredAt:now(),updatedAt:now()};
       await putJson('registrations/'+id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,registration:row});
     }
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
@@ -43,8 +61,24 @@ export default async function handler(req,res){
     const user=await requireUser(req,res);if(!user)return;const role=String(req.query.role||'athlete').toLowerCase(),roles=user.roles||[];
     const allowed={athlete:['ATHLETE'],academy:['COACH','ACADEMY_ADMIN'],region:['COMMITTEE'],referee:['REFEREE'],ceo:['CEO']};
     if(allowed[role]&&!allowed[role].some(r=>roles.includes(r)))return res.status(403).json({ok:false,error:'forbidden'});
-    if(role==='athlete'){const [events,regs]=await Promise.all([listJson('ranking-events/',5000),listJson('registrations/',5000)]),mine=events.filter(x=>x.athleteUserId===user.id),myRegs=regs.filter(x=>x.userId===user.id&&!['CANCELED','REFUNDED'].includes(x.status));return res.status(200).json({ok:true,role,data:{points:mine.reduce((s,x)=>s+(Number(x.finalPoints)||0),0),wins:mine.filter(x=>x.type==='WIN').length,registrations:myRegs.length,paid:myRegs.filter(x=>x.paymentStatus==='PAID').length}});}
-    if(role==='academy'){const [academies,regs,events]=await Promise.all([listJson('academies/',1000),listJson('registrations/',10000),listJson('ranking-events/',10000)]),mine=academies.filter(x=>(x.coachUserId===user.id||x.adminUserIds?.includes(user.id))&&x.status==='APPROVED'),ids=new Set(mine.map(x=>x.id)),myRegs=regs.filter(x=>ids.has(x.academyId)),athleteIds=new Set(myRegs.map(x=>x.userId));return res.status(200).json({ok:true,role,data:{academies:mine.length,registeredAthletes:athleteIds.size,eventRegistrations:myRegs.length,teamPoints:events.filter(x=>athleteIds.has(x.athleteUserId)).reduce((s,x)=>s+(Number(x.finalPoints)||0),0)}});}
+    if(role==='athlete'){
+      const season=String(req.query.season||DEFAULT_SEASON);
+      if(!/^\d{4}$/.test(season))return res.status(400).json({ok:false,error:'invalid_season'});
+      const [events,regs,tournaments]=await Promise.all([listJson('ranking-events/',10000),listJson('registrations/',5000),listJson('tournaments/',1000)]);
+      const categoryStats=seasonRanking(events.filter(x=>x.athleteUserId===user.id),tournaments,season);
+      const stats=categoryStats.reduce((sum,x)=>({points:sum.points+x.points,wins:sum.wins+x.wins}),{points:0,wins:0});
+      const myRegs=regs.filter(x=>x.userId===user.id&&!['CANCELED','REFUNDED'].includes(x.status));
+      return res.status(200).json({ok:true,role,season,categoryStats,data:{points:stats.points,wins:stats.wins,registrations:myRegs.length,paid:myRegs.filter(x=>x.paymentStatus==='PAID').length}});
+    }
+    if(role==='academy'){
+      const season=String(req.query.season||DEFAULT_SEASON);
+      if(!/^\d{4}$/.test(season))return res.status(400).json({ok:false,error:'invalid_season'});
+      const [academies,regs,events,tournaments]=await Promise.all([listJson('academies/',1000),listJson('registrations/',10000),listJson('ranking-events/',10000),listJson('tournaments/',1000)]);
+      const mine=academies.filter(x=>(x.coachUserId===user.id||x.adminUserIds?.includes(user.id))&&x.status==='APPROVED'),ids=new Set(mine.map(x=>x.id));
+      const myRegs=regs.filter(x=>ids.has(x.academyId)),athleteIds=new Set(myRegs.map(x=>x.userId));
+      const teamPoints=seasonRanking(events.filter(x=>athleteIds.has(x.athleteUserId)),tournaments,season).reduce((sum,x)=>sum+x.points,0);
+      return res.status(200).json({ok:true,role,season,data:{academies:mine.length,registeredAthletes:athleteIds.size,eventRegistrations:myRegs.length,teamPoints:Math.round(teamPoints*100)/100}});
+    }
     if(role==='region'){const region=user.committeeRegion||'', [academies,regs,audit]=await Promise.all([listJson('academies/',2000),listJson('registrations/',10000),listJson('audit/',2000)]),scoped=region?academies.filter(x=>x.region===region):[],ids=new Set(scoped.map(x=>x.id)),scopedRegs=regs.filter(x=>ids.has(x.academyId));return res.status(200).json({ok:true,role,data:{region:region||'미지정',approvedAcademies:scoped.filter(x=>x.status==='APPROVED').length,pendingAcademies:scoped.filter(x=>x.status==='PENDING').length,eventRegistrations:scopedRegs.length,activeAthletes:new Set(scopedRegs.map(x=>x.userId)).size,activityEvents:audit.filter(x=>ids.has(x.entityId)).length}});}
     if(role==='referee'){const matches=await listJson('matches/',5000),judged=matches.filter(x=>x.resultBy===user.id);return res.status(200).json({ok:true,role,data:{completedMatches:judged.length,scheduled:matches.filter(x=>x.status==='SCHEDULED').length,assignments:0,rating:'-'}});}
     if(role==='ceo'){const [users,academies,tournaments,regs,audit]=await Promise.all([listJson('users/',5000),listJson('academies/',2000),listJson('tournaments/',1000),listJson('registrations/',10000),listJson('audit/',3000)]);return res.status(200).json({ok:true,role,data:{members:users.filter(x=>x.status==='ACTIVE').length,academies:academies.filter(x=>x.status==='APPROVED').length,tournaments:tournaments.length,paidRevenue:regs.filter(x=>x.paymentStatus==='PAID').reduce((s,x)=>s+(Number(x.amount)||0),0),registrations:regs.length,auditEvents:audit.length}});}
@@ -68,7 +102,7 @@ export default async function handler(req,res){
   if(op==='training'){
     const u=await requireUser(req,res,['ATHLETE']);if(!u)return;
     if(req.method==='GET')return res.status(200).json({ok:true,requests:(await listJson('training-requests/',3000)).filter(x=>x.athleteUserId===u.id)});
-    if(req.method==='POST'){const b=req.body||{},hostAcademyId=clean(b.hostAcademyId,80),visitDate=clean(b.visitDate,20),passTier=clean(b.passTier,30)||'MEMBER';if(!hostAcademyId||!visitDate)return res.status(400).json({ok:false,error:'required_fields'});const a=await getJson('academies/'+hostAcademyId+'.json');if(!a||a.status!=='APPROVED')return res.status(404).json({ok:false,error:'host_academy_not_found'});const row={id:makeId('trq'),athleteUserId:u.id,socId:u.socId,athleteName:u.name,hostAcademyId,hostAcademyName:a.name,visitDate,passTier,status:'REQUESTED',settlementAmount:0,settlementCurrency:'KRW',createdAt:now(),updatedAt:now()};await putJson('training-requests/'+row.id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,request:row});}
+    if(req.method==='POST')return res.status(409).json({ok:false,error:'training_contract_and_quota_not_configured',message:'협약·이용한도·예약 정원이 확정된 뒤 신청할 수 있습니다.'});
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
 
@@ -83,7 +117,7 @@ export default async function handler(req,res){
   if(op==='academy-training'){
     const u=await requireUser(req,res,['COACH','ACADEMY_ADMIN']);if(!u)return;const owned=(await listJson('academies/',2000)).filter(x=>x.coachUserId===u.id||x.adminUserIds?.includes(u.id)),ids=new Set(owned.map(x=>x.id));
     if(req.method==='GET')return res.status(200).json({ok:true,requests:(await listJson('training-requests/',5000)).filter(x=>ids.has(x.hostAcademyId))});
-    if(req.method==='POST'){const b=req.body||{},id=clean(b.requestId,80),status=clean(b.status,20).toUpperCase();if(!['APPROVED','REJECTED','COMPLETED'].includes(status))return res.status(400).json({ok:false,error:'invalid_status'});const row=await getJson('training-requests/'+id+'.json');if(!row||!ids.has(row.hostAcademyId))return res.status(404).json({ok:false,error:'request_not_found'});const before={...row};row.status=status;row.hostReviewedBy=u.id;row.hostReviewedAt=now();row.updatedAt=now();await putJson('training-requests/'+id+'.json',row);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:u.id,action:'TRAINING_'+status,entityType:'TRAINING_REQUEST',entityId:id,before,after:row,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,request:row});}
+    if(req.method==='POST')return res.status(409).json({ok:false,error:'training_contract_and_quota_not_configured'});
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
 
@@ -94,13 +128,13 @@ export default async function handler(req,res){
   if(op==='certificate'||op==='certificate-qr'){
     const u=await requireUser(req,res,['ATHLETE']);if(!u)return;
     if(op==='certificate'){
-      const tournamentId=clean(req.query.tournamentId,80);if(!tournamentId)return res.status(400).json({ok:false,error:'tournament_required'});
+      const tournamentId=clean(req.body.tournamentId,80);if(!tournamentId)return res.status(400).json({ok:false,error:'tournament_required'});
       const [trn,profile,events,matches,medals]=await Promise.all([getJson('tournaments/'+tournamentId+'.json'),getJson('athletes/'+u.id+'.json'),listJson('ranking-events/',10000),listJson('matches/',10000),listJson('medals/',5000)]);
-      if(!trn)return res.status(404).json({ok:false,error:'tournament_not_found'});
+      if(!trn||trn.status==='CANCELED')return res.status(404).json({ok:false,error:'tournament_not_found'});
       const mineMatches=matches.filter(x=>x.tournamentId===tournamentId&&x.status==='COMPLETED'&&(x.athleteA?.userId===u.id||x.athleteB?.userId===u.id));
       if(!mineMatches.length)return res.status(409).json({ok:false,error:'no_completed_result'});
-      const mineEvents=events.filter(x=>x.tournamentId===tournamentId&&x.athleteUserId===u.id),mineMedals=medals.filter(x=>x.tournamentId===tournamentId&&x.athleteUserId===u.id);
-      const code=crypto.createHmac('sha256',process.env.SOC_TICKET_SIGNING_KEY||'').update('CERT|'+u.id+'|'+tournamentId).digest('base64url').slice(0,28);
+      const mineEvents=events.filter(x=>x.tournamentId===tournamentId&&x.athleteUserId===u.id&&!x.voidedAt),mineMedals=medals.filter(x=>x.tournamentId===tournamentId&&x.athleteUserId===u.id);
+      const code=crypto.createHmac('sha256',signingKey()).update('CERT|'+u.id+'|'+tournamentId).digest('base64url').slice(0,28);
       const cert={code,socId:u.socId,athleteName:profile?.displayName||u.name,academyName:profile?.academyName||'',belt:profile?.belt||'',tournamentId,tournamentName:trn.name,eventDate:trn.startAt||'',wins:mineEvents.filter(x=>x.type==='WIN').length,points:mineEvents.reduce((s,x)=>s+(Number(x.finalPoints)||0),0),medals:mineMedals.map(x=>({medal:x.medal,absolute:x.absolute})),issuedAt:now()};
       await putJson('certificates/'+code+'.json',cert);
       return res.status(200).json({ok:true,certificate:cert});
@@ -111,3 +145,51 @@ export default async function handler(req,res){
 
   return res.status(404).json({ok:false,error:'unknown_member_operation'});
 }
+
+export default apiHandler(handler, {
+  "athlete": [
+    "GET",
+    "POST",
+    "PUT"
+  ],
+  "registrations": [
+    "GET",
+    "POST"
+  ],
+  "dashboard": [
+    "GET"
+  ],
+  "ticket": [
+    "GET"
+  ],
+  "ticket-qr": [
+    "GET"
+  ],
+  "support": [
+    "GET",
+    "POST"
+  ],
+  "training": [
+    "GET",
+    "POST"
+  ],
+  "academy-mine": [
+    "GET"
+  ],
+  "academy-athletes": [
+    "GET"
+  ],
+  "academy-training": [
+    "GET",
+    "POST"
+  ],
+  "referee-assignments": [
+    "GET"
+  ],
+  "certificate": [
+    "POST"
+  ],
+  "certificate-qr": [
+    "GET"
+  ]
+});
