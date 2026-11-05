@@ -5,117 +5,45 @@
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(self), microphone=(), geolocation=()"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(), geolocation=()" }
       ]
     }
   ],
   "rewrites": [
-    {
-      "source": "/api/auth/register",
-      "destination": "/api/auth?op=register"
-    },
-    {
-      "source": "/api/auth/login",
-      "destination": "/api/auth?op=login"
-    },
-    {
-      "source": "/api/auth/me",
-      "destination": "/api/auth?op=me"
-    },
-    {
-      "source": "/api/auth/logout",
-      "destination": "/api/auth?op=logout"
-    },
-    {
-      "source": "/api/health",
-      "destination": "/api/public?op=health"
-    },
-    {
-      "source": "/api/academies/index",
-      "destination": "/api/public?op=academies"
-    },
-    {
-      "source": "/api/tournaments/index",
-      "destination": "/api/public?op=tournaments"
-    },
-    {
-      "source": "/api/divisions/index",
-      "destination": "/api/public?op=divisions"
-    },
-    {
-      "source": "/api/ranking",
-      "destination": "/api/public?op=ranking"
-    },
-    {
-      "source": "/api/content",
-      "destination": "/api/public?op=content"
-    },
-    {
-      "source": "/api/athlete",
-      "destination": "/api/member?op=athlete"
-    },
-    {
-      "source": "/api/registrations/index",
-      "destination": "/api/member?op=registrations"
-    },
-    {
-      "source": "/api/dashboard",
-      "destination": "/api/member?op=dashboard"
-    },
-    {
-      "source": "/api/ticket",
-      "destination": "/api/member?op=ticket"
-    },
-    {
-      "source": "/api/ticket-qr",
-      "destination": "/api/member?op=ticket-qr"
-    },
-    {
-      "source": "/api/support/index",
-      "destination": "/api/member?op=support"
-    },
-    {
-      "source": "/api/training/index",
-      "destination": "/api/member?op=training"
-    },
-    {
-      "source": "/api/academies/mine",
-      "destination": "/api/member?op=academy-mine"
-    },
-    {
-      "source": "/api/academies/athletes",
-      "destination": "/api/member?op=academy-athletes"
-    },
-    {
-      "source": "/api/academy/training-requests",
-      "destination": "/api/member?op=academy-training"
-    },
-    {
-      "source": "/api/referee/assignments",
-      "destination": "/api/member?op=referee-assignments"
-    },
-    {
-      "source": "/api/admin/:op",
-      "destination": "/api/admin?op=:op"
-    },
-    {
-      "source": "/api/operations/:op",
-      "destination": "/api/ops?op=:op"
-    }
+    { "source": "/api/auth/register", "destination": "/api/auth?op=register" },
+    { "source": "/api/auth/login", "destination": "/api/auth?op=login" },
+    { "source": "/api/auth/me", "destination": "/api/auth?op=me" },
+    { "source": "/api/auth/logout", "destination": "/api/auth?op=logout" },
+    { "source": "/api/health", "destination": "/api/public?op=health" },
+
+    { "source": "/api/academies/index", "destination": "/api/public?op=academies" },
+    { "source": "/api/academies", "destination": "/api/public?op=academies" },
+    { "source": "/api/tournaments/index", "destination": "/api/public?op=tournaments" },
+    { "source": "/api/tournaments", "destination": "/api/public?op=tournaments" },
+    { "source": "/api/divisions/index", "destination": "/api/public?op=divisions" },
+    { "source": "/api/divisions", "destination": "/api/public?op=divisions" },
+    { "source": "/api/ranking", "destination": "/api/public?op=ranking" },
+    { "source": "/api/content", "destination": "/api/public?op=content" },
+
+    { "source": "/api/athlete", "destination": "/api/member?op=athlete" },
+    { "source": "/api/registrations/index", "destination": "/api/member?op=registrations" },
+    { "source": "/api/registrations", "destination": "/api/member?op=registrations" },
+    { "source": "/api/dashboard", "destination": "/api/member?op=dashboard" },
+    { "source": "/api/ticket", "destination": "/api/member?op=ticket" },
+    { "source": "/api/ticket-qr", "destination": "/api/member?op=ticket-qr" },
+    { "source": "/api/support/index", "destination": "/api/member?op=support" },
+    { "source": "/api/support", "destination": "/api/member?op=support" },
+    { "source": "/api/training/index", "destination": "/api/member?op=training" },
+    { "source": "/api/training", "destination": "/api/member?op=training" },
+    { "source": "/api/academies/mine", "destination": "/api/member?op=academy-mine" },
+    { "source": "/api/academies/athletes", "destination": "/api/member?op=academy-athletes" },
+    { "source": "/api/academy/training-requests", "destination": "/api/member?op=academy-training" },
+    { "source": "/api/referee/assignments", "destination": "/api/member?op=referee-assignments" },
+
+    { "source": "/api/admin/:op", "destination": "/api/admin?op=:op" },
+    { "source": "/api/operations/:op", "destination": "/api/ops?op=:op" }
   ]
 }
