@@ -1,9 +1,20 @@
 {
-  "name":"SOC ONE",
-  "short_name":"SOC",
-  "description":"State of Control global jiu-jitsu platform",
-  "start_url":"/",
+  "name":"SOC ONE · State of Control",
+  "short_name":"SOC ONE",
+  "description":"Global Jiu-Jitsu League, Federation & Athlete Platform",
+  "start_url":"/my-soc.html",
+  "scope":"/",
   "display":"standalone",
-  "background_color":"#070a0f",
-  "theme_color":"#070a0f"
+  "orientation":"portrait-primary",
+  "background_color":"#06080d",
+  "theme_color":"#06080d",
+  "icons":[
+    {"src":"/favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ],
+  "shortcuts":[
+    {"name":"MY SOC","url":"/my-soc.html"},
+    {"name":"대회","url":"/competition.html"},
+    {"name":"랭킹","url":"/ranking.html"},
+    {"name":"운영","url":"/admin.html"}
+  ]
 }
