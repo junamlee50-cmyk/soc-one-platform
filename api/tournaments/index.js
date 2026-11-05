@@ -3,7 +3,7 @@ import { requireUser } from '../../lib/auth.js';
 
 export default async function handler(req,res){
   if(req.method==='GET'){
-    const rows=(await listJson('tournaments/',300)).filter(x=>!x.deletedAt).sort((a,b)=>String(a.startAt||'').localeCompare(String(b.startAt||'')));
+    const rows=(await listJson('tournaments/',300)).filter(x=>!x.deletedAt && ['COMING_SOON','REGISTRATION_OPEN','PUBLISHED','CLOSED','COMPLETED'].includes(x.status)).sort((a,b)=>String(a.startAt||'').localeCompare(String(b.startAt||'')));
     return res.status(200).json({ok:true,tournaments:rows});
   }
   if(req.method==='POST'){
