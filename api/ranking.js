@@ -1,9 +1,8 @@
-const sample=[
-{rank:1,name:'DEMO ATHLETE A',academy:'SOC ACADEMY',belt:'BLACK',weight:'-76kg',points:980},
-{rank:2,name:'DEMO ATHLETE B',academy:'CONTROL BJJ',belt:'BROWN',weight:'-82kg',points:920},
-{rank:3,name:'DEMO ATHLETE C',academy:'ONE TEAM',belt:'PURPLE',weight:'-70kg',points:875},
-{rank:4,name:'DEMO ATHLETE D',academy:'STATE JIU-JITSU',belt:'BLUE',weight:'-64kg',points:820}
-];
-export default function handler(req,res){
-  res.status(200).json({ok:true,season:'2027',demo:true,ranking:sample});
+import { listJson } from '../../lib/blobdb.js';
+export default async function handler(req,res){
+  const events=await listJson('ranking-events/',5000);
+  const sums=new Map();
+  for(const e of events){const k=e.athleteUserId;if(!k)continue;const x=sums.get(k)||{athleteUserId:k,points:0,wins:0,medals:0};x.points+=Number(e.finalPoints)||0;if(e.type==='WIN')x.wins++;if(['BRONZE','SILVER','GOLD','ABS_BRONZE','ABS_SILVER','ABS_GOLD'].includes(e.type))x.medals++;sums.set(k,x);}
+  const rows=[...sums.values()].sort((a,b)=>b.points-a.points).map((x,i)=>({...x,rank:i+1}));
+  return res.status(200).json({ok:true,season:'2027',ranking:rows});
 }
