@@ -1,0 +1,9 @@
+{
+  "name":"SOC ONE",
+  "short_name":"SOC",
+  "description":"State of Control global jiu-jitsu platform",
+  "start_url":"/",
+  "display":"standalone",
+  "background_color":"#070a0f",
+  "theme_color":"#070a0f"
+}
