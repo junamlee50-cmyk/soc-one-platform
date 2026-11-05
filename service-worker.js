@@ -1,5 +1,33 @@
-const CACHE='soc-one-v1';
-const ASSETS=['/','/index.html','/my-soc.html','/competition.html','/academies.html','/ranking.html','/support.html','/pro.html','/media.html','/gear.html','/admin.html','/rules.html','/athlete-app.html','/academy-app.html','/region-app.html','/referee-app.html','/tournament-ops.html','/assets/soc.css','/assets/soc.js','/favicon.svg','/manifest.webmanifest','/offline.html'];
-self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
-self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).then(r=>{const clone=r.clone();caches.open(CACHE).then(c=>c.put(e.request,clone));return r}).catch(()=>caches.match(e.request).then(r=>r||caches.match('/offline.html'))))});
+const CACHE='soc-one-public-v3';
+const PUBLIC_ASSETS=[
+  '/','/index.html','/competition.html','/academies.html','/ranking.html','/support.html','/pro.html','/global.html','/media.html','/gear.html','/rules.html','/sponsors.html','/talent.html',
+  '/assets/soc.css','/assets/soc.js','/favicon.svg','/manifest.webmanifest','/offline.html'
+];
+const PRIVATE_PATHS=[
+  '/my-soc.html','/setup.html','/admin.html','/athlete-app.html','/academy-app.html','/region-app.html','/referee-app.html','/ceo-app.html','/tournament-ops.html'
+];
+self.addEventListener('install',event=>{
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(PUBLIC_ASSETS)).then(()=>self.skipWaiting()));
+});
+self.addEventListener('activate',event=>{
+  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
+});
+self.addEventListener('fetch',event=>{
+  if(event.request.method!=='GET') return;
+  const url=new URL(event.request.url);
+  if(url.origin!==self.location.origin) return;
+  if(url.pathname.startsWith('/api/')||PRIVATE_PATHS.includes(url.pathname)){
+    event.respondWith(fetch(event.request,{cache:'no-store'}));
+    return;
+  }
+  if(PUBLIC_ASSETS.includes(url.pathname)){
+    event.respondWith(fetch(event.request).then(response=>{
+      if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
+      return response;
+    }).catch(()=>caches.match(event.request).then(hit=>hit||caches.match('/offline.html'))));
+    return;
+  }
+  if(event.request.mode==='navigate'){
+    event.respondWith(fetch(event.request).catch(()=>caches.match('/offline.html')));
+  }
+});
