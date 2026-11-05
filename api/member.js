@@ -106,7 +106,7 @@ export default async function handler(req,res){
       return res.status(200).json({ok:true,certificate:cert});
     }
     const code=clean(req.query.code,60);const cert=await getJson('certificates/'+code+'.json');if(!cert||cert.socId!==u.socId)return res.status(404).end();
-    const svg=await QRCode.toString('SOC-CERT:'+code,{type:'svg',margin:1,width:260,errorCorrectionLevel:'M'});res.setHeader('Content-Type','image/svg+xml; charset=utf-8');res.setHeader('Cache-Control','private, no-store');return res.status(200).send(svg);
+    const verifyUrl='https://'+(req.headers.host||'soc-one-platform.vercel.app')+'/verify.html?code='+encodeURIComponent(code);const svg=await QRCode.toString(verifyUrl,{type:'svg',margin:1,width:260,errorCorrectionLevel:'M'});res.setHeader('Content-Type','image/svg+xml; charset=utf-8');res.setHeader('Cache-Control','private, no-store');return res.status(200).send(svg);
   }
 
   return res.status(404).json({ok:false,error:'unknown_member_operation'});
