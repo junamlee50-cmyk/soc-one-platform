@@ -1,0 +1,32 @@
+let paymentUser,registrationRows=[],settingsVersion=0,paymentLoad=0;
+const payStatus={UNPAID:'입금 대기',PENDING:'입금 신고 접수 · 운영자 확인 중',PAID:'입금 확인 완료',REFUND_REQUESTED:'환불 검토 중',REFUNDED:'환불 기록 완료',CANCELED:'신청 취소'};
+const paymentErrors={base_payment_required:'기본종목의 입금을 먼저 확인해 주세요.',dependent_registrations_active:'연결된 추가종목·앱솔루트 신청을 먼저 취소하거나 환불 처리해 주세요.',payment_amount_mismatch:'실제 확인액이 신청금액과 다릅니다. 차액을 확인해 주세요.',payment_evidence_already_used:'이미 다른 처리에 사용한 증빙번호입니다.',payment_revision_conflict:'다른 처리가 먼저 반영되었습니다. 새로고침 후 확인하세요.',legacy_payment_review_required:'이전 입금 기록의 원본 증빙 확인·이관이 필요합니다.',published_bracket_requires_correction:'대진 확정 이후에는 운영자에게 정정 절차를 요청해 주세요.',bank_transfer_not_configured:'운영진의 입금계좌 설정 전입니다.',payment_after_deadline:'입금 시각이 신청 기한 이후입니다. 운영진의 별도 확인이 필요합니다.',payment_deadline_passed:'입금 신고 기한이 지났습니다. 운영진에게 문의해 주세요.',mfa_setup_required:'계정 보안에서 관리자 추가인증을 먼저 등록해 주세요.'};
+const paymentIsStaff=()=>paymentUser?.roles.some(r=>['STAFF','FINANCE','ADMIN','CEO'].includes(r));
+const selectedPayment=()=>registrationRows.find(r=>r.id===paymentRegistration.value);
+const kstDate=v=>v?new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'미정';
+const paymentError=d=>d.message||paymentErrors[d.error]||d.error||'처리 실패';
+function renderPayment(){
+  const r=selectedPayment();paymentDetails.textContent='';paymentTicket.hidden=true;if(!r)return;
+  const bank=r.bankTransfer;paymentDetails.textContent=['신청번호: '+r.id,'선수: '+r.athleteName,'참가비: '+SOC.money(r.amount),'상태: '+(payStatus[r.paymentStatus]||r.paymentStatus),r.amount===0?'입금 없이 운영 승인 대상':bank?'은행: '+bank.bankName+'\n계좌: '+bank.accountNumber+'\n예금주: '+bank.accountHolder+'\n입금 기한: '+kstDate(r.paymentDueAt)+'\n'+bank.instructions:'입금계좌 안내 준비 중입니다. 운영진에게 문의해 주세요.',r.depositClaim?'입금 신고: '+r.depositClaim.depositorName+' / '+SOC.money(r.depositClaim.amount)+' / '+kstDate(r.depositClaim.occurredAt):''].filter(Boolean).join('\n');
+  receiptAmount.value=r.amount;claimAmount.value=r.amount;
+  if(r.paymentStatus==='PAID'&&!paymentIsStaff()){paymentTicket.hidden=false;paymentTicket.href='/athlete-app.html';}
+  claimForm.hidden=r.amount===0||r.status!=='REGISTERED'||!['UNPAID','PENDING'].includes(r.paymentStatus);
+  cancelRegistration.disabled=r.paymentStatus!=='UNPAID'||r.status!=='REGISTERED';requestRefund.disabled=r.paymentStatus!=='PAID'||r.status!=='REGISTERED';
+}
+async function loadPayments(){
+  const serial=++paymentLoad,previous=paymentRegistration.value||new URL(location.href).searchParams.get('registrationId');
+  const d=await SOC.get(paymentIsStaff()?'/api/admin/registrations':'/api/registrations');if(serial!==paymentLoad)return;
+  if(!d.ok){paymentMsg.textContent=paymentError(d);return;}registrationRows=d.registrations;
+  paymentRegistration.replaceChildren();for(const r of registrationRows){const option=document.createElement('option');option.value=r.id;option.textContent=r.athleteName+' · '+r.discipline+' '+r.weightClass+' · '+(payStatus[r.paymentStatus]||r.paymentStatus);paymentRegistration.append(option);}
+  if(registrationRows.some(r=>r.id===previous))paymentRegistration.value=previous;renderPayment();
+  if(!registrationRows.length)paymentDetails.textContent='참가신청 내역이 없습니다.';
+  if(paymentIsStaff())await loadLedger();
+}
+async function loadLedger(){const d=await SOC.get('/api/admin/payment-ledger');if(!d.ok){ledgerSummary.textContent=paymentError(d);return;}ledgerSummary.textContent='확인 입금 '+SOC.money(d.summary.received)+' · 환불 '+SOC.money(d.summary.refunded)+' · 순입금 '+SOC.money(d.summary.netReceived)+' · 입금대기 '+d.summary.pending+'건 · 이전 증빙 대조 필요 '+d.summary.legacyUnreconciled+'건';paymentLedger.replaceChildren();for(const e of d.ledger){const row=document.createElement('p');row.textContent=(e.kind==='DEPOSIT'?'입금':'환불')+' '+SOC.money(e.amount)+' · '+e.reference+' · '+kstDate(e.occurredAt);paymentLedger.append(row);}}
+async function savePayment(button,url,body){button.disabled=true;try{const d=await SOC.post(url,body);paymentMsg.textContent=d.ok?'처리 내용을 저장했습니다.':paymentError(d);if(d.ok)await loadPayments();return d;}finally{button.disabled=false;}}
+claimForm.onsubmit=async e=>{e.preventDefault();const r=selectedPayment();if(!r)return;await savePayment(e.submitter,'/api/member?op=payment',{registrationId:r.id,revision:r.paymentRevision||0,action:'REPORT_DEPOSIT',depositorName:claimName.value,amount:Number(claimAmount.value),occurredAt:claimAt.value+':00+09:00'});};
+receiptForm.onsubmit=async e=>{e.preventDefault();const r=selectedPayment();if(!r)return;await savePayment(e.submitter,'/api/admin/payment-status',{registrationId:r.id,revision:r.paymentRevision||0,paymentStatus:receiptAction.value,amount:Number(receiptAmount.value),occurredAt:receiptAt.value+':00+09:00',reference:receiptReference.value,reason:receiptReason.value});};
+for(const [button,action]of [[cancelRegistration,'CANCEL'],[requestRefund,'REQUEST_REFUND']])button.onclick=async()=>{const r=selectedPayment(),reason=prompt(action==='CANCEL'?'신청 취소 사유':'환불 요청 사유');if(!r||!reason)return;await savePayment(button,'/api/member?op=payment',{registrationId:r.id,revision:r.paymentRevision||0,action,reason});};
+bankForm.onsubmit=async e=>{e.preventDefault();e.submitter.disabled=true;try{const d=await SOC.post('/api/admin/payment-settings',{expectedVersion:settingsVersion,bankName:bankName.value,accountNumber:bankNumber.value,accountHolder:bankHolder.value,paymentHours:Number(bankHours.value),instructions:bankInstructions.value,enabled:bankEnabled.checked,reason:bankReason.value});paymentMsg.textContent=d.ok?'입금계좌 설정을 저장했습니다.':paymentError(d);if(d.ok)settingsVersion=d.settings.version;}finally{e.submitter.disabled=false;}};
+paymentRegistration.onchange=renderPayment;reloadPayments.onclick=loadPayments;
+(async()=>{paymentUser=await SOC.requireRoles(['ATHLETE','STAFF','FINANCE','ADMIN','CEO']);if(!paymentUser)return;memberPayment.hidden=paymentIsStaff();financePayment.hidden=!paymentIsStaff();financeSummary.hidden=!paymentIsStaff();if(paymentUser.roles.some(r=>['ADMIN','CEO'].includes(r))){bankSettings.hidden=false;const d=await SOC.get('/api/admin/payment-settings');if(d.ok&&d.settings){const s=d.settings;settingsVersion=s.version;bankName.value=s.bankName;bankNumber.value=s.accountNumber;bankHolder.value=s.accountHolder;bankHours.value=s.paymentHours;bankInstructions.value=s.instructions;bankEnabled.checked=s.enabled;}}await loadPayments();})();

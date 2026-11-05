@@ -1,0 +1,268 @@
+import {TEST_BANK} from './helpers/bank.js';
+import { TEST_RULES } from './helpers/rules.js';
+import { test, beforeEach, after, mock } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
+const realPostgres=Boolean(process.env.TEST_DATABASE_URL);
+let local,tail=Promise.resolve(),failPath=null;
+if(!realPostgres){
+  const { PGlite }=await import('@electric-sql/pglite');local=new PGlite();
+  class Pool {
+    async connect(){
+      const previous=tail;let unlock;tail=new Promise(r=>unlock=r);await previous;
+      return {async query(sql,args){if(failPath&&String(sql).startsWith('INSERT INTO soc_records')&&args?.[0]?.startsWith(failPath)){failPath=null;throw new Error('injected-storage-failure');}return !args?.length&&String(sql).includes(';')?(await local.exec(sql)).at(-1):local.query(sql,args);},release:unlock};
+    }
+    async query(sql,args){const c=await this.connect();try{return await c.query(sql,args)}finally{c.release()}}
+    async end(){}
+  }
+  mock.module('pg',{defaultExport:{Pool}});
+}
+process.env.DATABASE_URL=process.env.TEST_DATABASE_URL||'postgresql://unused-local-test';
+process.env.SOC_DATA_BACKEND='postgres';
+process.env.SOC_TICKET_SIGNING_KEY='postgres-test-signing-key-not-for-deployment';
+const { query, inTransaction, closePool }=await import('../lib/database.js');
+const { putJson, getJson, listJson, hash }=await import('../lib/blobdb.js');
+const member=(await import('../api/member.js')).default;
+const ops=(await import('../api/ops.js')).default;
+const auth=(await import('../api/auth.js')).default;
+const admin=(await import('../api/admin.js')).default;
+const {totp,decryptSecret}=await import('../lib/mfa.js');
+await query(await readFile(new URL('../db/migrations/001_operational_records.sql',import.meta.url),'utf8'));
+await query(await readFile(new URL('../db/migrations/002_manual_payments.sql',import.meta.url),'utf8'));
+const seed=(path,value)=>putJson(path,value);
+const response=()=>({statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.statusCode=n;return this},json(body){this.body=body;return this},send(body){this.body=body;return this},end(){return this}});
+async function call(handler,op,userId,body={},method='POST'){
+ const res=response();await handler({method,query:{op},body,headers:{host:'soc.test',origin:'https://soc.test','content-type':'application/json',cookie:'__Host-soc_session='+userId}},res);return res;
+}
+async function person(id,roles=['ATHLETE']){
+ if(roles.includes('ATHLETE'))await seed('athletes/'+id+'.json',{userId:id,birthDate:'2000-01-01',belt:'WHITE',gender:'MALE',defaultWeightKg:69});
+ await seed('users/'+id+'.json',{id,socId:'SOC-'+id,name:id,email:id+'@example.test',roles,status:'ACTIVE'});
+ await seed('sessions/'+hash(id)+'.json',{userId:id,expiresAt:new Date(Date.now()+3600000).toISOString()});
+}
+async function fixture(capacity=10){
+ await seed('system/bank-transfer.json',TEST_BANK);
+ await seed('rules/TEST-RULES.json',TEST_RULES);
+ await person('a');await person('b');await person('staff',['STAFF']);
+ await seed('tournaments/t.json',{id:'t',rulesId:'TEST-RULES',name:'SQL Test',status:'REGISTRATION_OPEN',startAt:'2027-02-01',fees:{regular:59000},rankingMultiplier:1});
+ await seed('divisions/d.json',{id:'d',tournamentId:'t',gender:'MALE',ageMin:18,ageMax:40,key:'GI|ADULT|MALE|WHITE|70|WEIGHT',discipline:'GI',ageGroup:'ADULT',belt:'WHITE',weightClass:'70',capacity,weightLimitKg:70});
+}
+beforeEach(async()=>{await query('TRUNCATE soc_records');await query('DELETE FROM soc_auth_attempts');failPath=null;});
+after(async()=>{await closePool();if(local)await local.close();});
+
+async function manualFixture(){await fixture();return (await call(member,'registrations','a',{tournamentId:'t',divisionId:'d'})).body.registration;}
+const receipt=(r,overrides={})=>({registrationId:r.id,paymentStatus:'PAID',revision:r.paymentRevision||0,amount:r.amount,occurredAt:new Date().toISOString(),reference:'BANK-TEST-'+r.id,reason:'Isolated bank reconciliation',...overrides});
+test('deposit report does not issue a ticket; staff receipt and full refund reconcile the ledger',async()=>{
+ const r=await manualFixture();
+ assert.equal((await call(member,'payment','b',{registrationId:r.id,revision:0,action:'REPORT_DEPOSIT'})).statusCode,404);
+ const report={registrationId:r.id,revision:0,action:'REPORT_DEPOSIT',amount:r.amount,depositorName:'Synthetic payer',occurredAt:new Date().toISOString(),paymentStatus:'PAID'};
+ assert.equal((await call(member,'payment','a',report)).body.registration.paymentStatus,'PENDING');
+ assert.equal((await call(member,'payment','a',report)).statusCode,409);
+ const pending=await getJson('registrations/'+r.id+'.json');
+ assert.equal((await call(admin,'payment-status','a',receipt(pending))).statusCode,403);
+ assert.equal((await call(admin,'payment-status','staff',receipt(pending,{amount:1}))).statusCode,400);
+ assert.equal((await listJson('payment-ledger/')).length,0);
+ const paid=await call(admin,'payment-status','staff',receipt(pending));assert.equal(paid.statusCode,200);assert.equal(paid.body.registration.paymentStatus,'PAID');
+ const request=await call(member,'payment','a',{registrationId:r.id,revision:2,action:'REQUEST_REFUND',reason:'Synthetic withdrawal'});assert.equal(request.statusCode,200);
+ const beforeRefund=(await call(admin,'overview','staff',{},'GET')).body.overview;
+ assert.equal(beforeRefund.netReceived,r.amount,'refund request is not a cash outflow');
+ assert.equal(beforeRefund.refunded,0);
+ const refunded=await call(admin,'payment-status','staff',receipt(request.body.registration,{paymentStatus:'REFUNDED',reference:'REFUND-TEST'}));assert.equal(refunded.statusCode,200);
+ assert.equal(refunded.body.registration.status,'REFUNDED');
+ const summary=(await call(admin,'payment-ledger','staff',{},'GET')).body.summary;
+ assert.equal(summary.received,r.amount);assert.equal(summary.refunded,r.amount);assert.equal(summary.netReceived,0);
+ assert.equal((await call(admin,'overview','staff',{},'GET')).body.overview.netReceived,0);
+ assert.equal((await listJson('audit/')).filter(a=>a.action==='MANUAL_PAYMENT_REFUNDED').length,1);
+});
+test('discounted additional entry cannot outlive or be paid before its base entry',async()=>{
+ const base=await manualFixture(),event=await getJson('tournaments/t.json');
+ event.fees.additionalDiscipline=29000;event.fees.absolute=25000;await seed('tournaments/t.json',event);
+ const division=await getJson('divisions/d.json');await seed('divisions/extra.json',{...division,id:'extra',discipline:'NO-GI',key:'NO-GI|ADULT|MALE|WHITE|70|WEIGHT'});
+ const extra=(await call(member,'registrations','a',{tournamentId:'t',divisionId:'extra'})).body.registration;
+ assert.equal(extra.amount,29000);assert.equal(extra.priceSnapshot.baseRegistrationId,base.id);
+ assert.equal((await call(admin,'payment-status','staff',receipt(extra))).body.error,'base_payment_required');
+ assert.equal((await call(member,'payment','a',{registrationId:base.id,revision:0,action:'CANCEL',reason:'Withdrawal'})).body.error,'dependent_registrations_active');
+ const paidBase=(await call(admin,'payment-status','staff',receipt(base))).body.registration;
+ const paidExtra=(await call(admin,'payment-status','staff',receipt(extra))).body.registration;
+ assert.equal(paidExtra.paymentStatus,'PAID');
+ assert.equal((await call(member,'payment','a',{registrationId:base.id,revision:1,action:'REQUEST_REFUND',reason:'Withdrawal'})).body.error,'dependent_registrations_active');
+ assert.equal((await call(admin,'payment-status','staff',receipt(paidBase,{paymentStatus:'REFUNDED',reference:'BASE-REFUND'}))).body.error,'dependent_registrations_active');
+ assert.equal((await call(admin,'payment-status','staff',receipt(paidExtra,{paymentStatus:'REFUNDED',reference:'EXTRA-REFUND'}))).statusCode,200);
+ assert.equal((await call(admin,'payment-status','staff',receipt(paidBase,{paymentStatus:'REFUNDED',reference:'BASE-REFUND'}))).statusCode,200);
+ assert.equal((await call(admin,'payment-ledger','staff',{},'GET')).body.summary.netReceived,0);
+});
+test('same bank evidence cannot pay two registrations concurrently or rewrite the ledger',async()=>{
+ const a=await manualFixture(),b=(await call(member,'registrations','b',{tournamentId:'t',divisionId:'d'})).body.registration;
+ const responses=await Promise.all([a,b].map(r=>call(admin,'payment-status','staff',receipt(r,{reference:'SHARED-REFERENCE'}))));
+ assert.deepEqual(responses.map(r=>r.statusCode).sort(),[200,409]);
+ const entries=await listJson('payment-ledger/');assert.equal(entries.length,1);
+ await assert.rejects(query("UPDATE soc_records SET value=value||'{\"amount\":1}' WHERE collection='payment-ledger'"),{code:'23514'});
+ await assert.rejects(query("DELETE FROM soc_records WHERE collection='payment-ledger'"),{code:'23514'});
+ assert.equal((await listJson('payment-ledger/'))[0].amount,a.amount);
+});
+test('receipt transaction rolls back on audit failure and retries consistently',async()=>{
+ const r=await manualFixture();
+ await query("ALTER TABLE soc_records ADD CONSTRAINT test_fail_payment CHECK (collection <> 'audit' OR value->>'action' <> 'MANUAL_PAYMENT_PAID')");
+ try{assert.equal((await call(admin,'payment-status','staff',receipt(r))).statusCode,503);}
+ finally{await query('ALTER TABLE soc_records DROP CONSTRAINT test_fail_payment');}
+ assert.equal((await listJson('payment-ledger/')).length,0);assert.equal((await getJson('registrations/'+r.id+'.json')).paymentStatus,'UNPAID');
+ assert.equal((await call(admin,'payment-status','staff',receipt(r))).statusCode,200);assert.equal((await listJson('payment-ledger/')).length,1);
+});
+test('account instructions are versioned, privileged, and preserved on existing registrations',async()=>{
+ const r=await manualFixture();await person('admin',['ADMIN']);
+ const body={...TEST_BANK,accountHolder:'Changed test holder',expectedVersion:1,reason:'Isolated change'};
+ assert.equal((await call(admin,'payment-settings','staff',body)).statusCode,403);
+ assert.equal((await call(admin,'payment-settings','admin',body)).statusCode,200);
+ assert.equal((await call(admin,'payment-settings','admin',body)).statusCode,409);
+ assert.equal((await getJson('registrations/'+r.id+'.json')).bankTransfer.accountHolder,TEST_BANK.accountHolder);
+ assert.equal((await call(member,'payment','a',{registrationId:r.id,revision:0,action:'CANCEL',reason:'No transfer made'})).statusCode,200);
+ assert.equal((await call(admin,'payment-status','staff',receipt(r,{revision:1}))).statusCode,409);
+});
+test('MFA enrollment, replay protection, single-use recovery, and session revocation work end to end',async()=>{
+ process.env.SOC_MFA_ENCRYPTION_KEY='cd'.repeat(32);
+ try{
+ const password='isolated-secure-password',registered=await call(auth,'register','',{name:'Security fixture',email:'security@example.test',password,consent:true});
+ const token=registered.headers['Set-Cookie'].split(';')[0].split('=')[1],userId=registered.body.user.id;
+ const start=await call(auth,'mfa-start',token,{currentPassword:password});assert.equal(start.statusCode,200);assert.match(start.body.qr,/^data:image\/png/);
+ const pending=await getJson('mfa-pending/'+userId+'.json'),secret=decryptSecret(pending.secret,userId),code=totp(secret);
+ const confirm=await call(auth,'mfa-confirm',token,{otp:code});assert.equal(confirm.statusCode,200);assert.equal(confirm.body.recoveryCodes.length,8);
+ assert.equal((await call(auth,'me',token,{},'GET')).statusCode,401);
+ assert.equal((await call(auth,'login','',{email:'security@example.test',password,otp:code})).statusCode,401);
+ const login=await call(auth,'login','',{email:'security@example.test',password,recoveryCode:confirm.body.recoveryCodes[0]});assert.equal(login.statusCode,200);
+ assert.equal((await call(auth,'login','',{email:'security@example.test',password,recoveryCode:confirm.body.recoveryCodes[0]})).statusCode,401);
+ const active=login.headers['Set-Cookie'].split(';')[0].split('=')[1];
+ const changed=await call(auth,'change-password',active,{currentPassword:password,newPassword:'changed-secure-password',recoveryCode:confirm.body.recoveryCodes[1]});assert.equal(changed.statusCode,200);
+ assert.equal((await call(auth,'me',active,{},'GET')).statusCode,401);
+ const latest=changed.headers['Set-Cookie'].split(';')[0].split('=')[1];assert.equal((await call(auth,'logout-all',latest)).statusCode,200);
+ assert.equal((await call(auth,'me',latest,{},'GET')).statusCode,401);
+ const stored=JSON.stringify(await listJson('mfa/'));for(const c of confirm.body.recoveryCodes)assert(!stored.includes(c));assert(!stored.includes(start.body.secret));
+ }finally{delete process.env.SOC_MFA_ENCRYPTION_KEY;}
+});
+test('production privileged access requires MFA setup before management requests',async()=>{
+ await fixture();process.env.VERCEL_ENV='production';
+ try{const r=await call(admin,'overview','staff',{},'GET');assert.equal(r.statusCode,403);assert.equal(r.body.error,'mfa_setup_required');assert.equal((await call(auth,'me','staff',{},'GET')).statusCode,200);}
+ finally{delete process.env.VERCEL_ENV;}
+});
+test('role changes require CEO reason and revoke the target previous sessions',async()=>{
+ await fixture();await person('ceo',['CEO']);
+ const body={userId:'a',role:'REFEREE',action:'GRANT',reason:'Verified isolated referee appointment'};
+ assert.equal((await call(admin,'role','staff',body)).statusCode,403);
+ assert.equal((await call(admin,'role','ceo',{...body,reason:''})).statusCode,400);
+ assert.equal((await call(admin,'role','ceo',body)).statusCode,200);
+ assert.equal((await call(auth,'me','a',{},'GET')).body.error,'session_revoked');
+ const audit=(await listJson('audit/')).find(a=>a.action==='ROLE_GRANT');assert.equal(audit.reason,body.reason);assert(audit.after.roles.includes('REFEREE'));
+});
+test('unconfigured training settlement cannot mark arbitrary amounts as paid',async()=>{
+ await fixture();await seed('training-requests/legacy.json',{id:'legacy',settlementStatus:'PENDING'});
+ const r=await call(admin,'training-settlement','staff',{requestId:'legacy',amount:-1000,status:'PAID'});
+ assert.equal(r.statusCode,409);assert.equal((await getJson('training-requests/legacy.json')).settlementStatus,'PENDING');
+});
+
+test('SQL rollback removes all writes after mid-operation failure',async()=>{
+ await assert.rejects(inTransaction(async()=>{await seed('audit/a.json',{action:'TEST'});await seed('audit/b.json',{action:'TEST'});throw new Error('fail');}));
+ assert.equal((await listJson('audit/')).length,0);
+});
+test('unique email and SOC ID are enforced by PostgreSQL',async()=>{
+ await person('a');
+ await assert.rejects(seed('users/b.json',{id:'b',email:'A@example.test',socId:'SOC-b'}),{code:'23505'});
+ await assert.rejects(seed('users/c.json',{id:'c',email:'c@example.test',socId:'SOC-a'}),{code:'23505'});
+});
+test('simultaneous duplicate registrations commit exactly once',async()=>{
+ await fixture();const body={tournamentId:'t',divisionId:'d'};
+ const result=await Promise.all([call(member,'registrations','a',body),call(member,'registrations','a',body)]);
+ assert.deepEqual(result.map(r=>r.statusCode).sort(),[201,409]);assert.equal((await listJson('registrations/')).length,1);
+});
+test('two applicants for the final place cannot overbook',async()=>{
+ await fixture(1);const body={tournamentId:'t',divisionId:'d'};
+ const result=await Promise.all([call(member,'registrations','a',body),call(member,'registrations','b',body)]);
+ assert.deepEqual(result.map(r=>r.statusCode).sort(),[201,409]);assert.equal((await listJson('registrations/')).length,1);
+});
+test('listing has no legacy 1,000-record cutoff',async()=>{
+ await query("INSERT INTO soc_records(path,value) SELECT 'audit/a'||n||'.json', jsonb_build_object('id',n) FROM generate_series(1,1201) n");
+ assert.equal((await listJson('audit/',10)).length,1201);
+});
+async function resultFixture(){
+ await fixture();await seed('brackets/br.json',{id:'br',rankingPolicy:TEST_RULES,tournamentId:'t',divisionKey:'GI|ADULT|MALE|WHITE|70|WEIGHT',athleteCount:2,roundCount:1,status:'PUBLISHED'});
+ await seed('matches/m.json',{id:'m',bracketId:'br',tournamentId:'t',divisionKey:'GI|ADULT|MALE|WHITE|70|WEIGHT',roundNo:1,status:'SCHEDULED',athleteA:{userId:'a',socId:'SOC-a',name:'a'},athleteB:{userId:'b',socId:'SOC-b',name:'b'}});
+}
+test('simultaneous match results create one winner and two medals',async()=>{
+ await resultFixture();const body={matchId:'m',winnerUserId:'a',winMethod:'POINTS'};
+ const result=await Promise.all([call(ops,'result','staff',body),call(ops,'result','staff',body)]);
+ assert.deepEqual(result.map(r=>r.statusCode).sort(),[200,409]);
+ assert.equal((await listJson('medals/')).length,2);assert.equal((await listJson('ranking-events/')).filter(x=>x.type==='WIN').length,1);
+});
+
+test('concurrent calls for a single mat commit only one active match',async()=>{
+ await resultFixture();const match=await getJson('matches/m.json');match.matNo=1;await seed('matches/m.json',match);
+ await seed('matches/other.json',{...match,id:'other',athleteA:{userId:'c'},athleteB:{userId:'d'}});
+ const result=await Promise.all(['m','other'].map(matchId=>call(ops,'match-state','staff',{matchId,action:'CALL'})));
+ assert.deepEqual(result.map(r=>r.statusCode).sort(),[200,409]);
+ assert.equal((await listJson('matches/')).filter(m=>m.status==='CALLED').length,1);
+ assert.equal((await listJson('audit/')).filter(a=>a.action==='MATCH_CALL').length,1);
+});
+test('partial result failure rolls back winner, points, medals, and audit; retry succeeds',async()=>{
+ await resultFixture();
+ if(realPostgres){
+  await query("CREATE OR REPLACE FUNCTION soc_test_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF split_part(NEW.path,'/',1)='ranking-events' THEN RAISE EXCEPTION 'injected test failure'; END IF; RETURN NEW; END $$");
+  await query('CREATE TRIGGER soc_test_failure BEFORE INSERT ON soc_records FOR EACH ROW EXECUTE FUNCTION soc_test_failure()');
+ }else failPath='ranking-events/';
+ try{
+  const r=await call(ops,'result','staff',{matchId:'m',winnerUserId:'a',winMethod:'POINTS'});assert.equal(r.statusCode,503);
+  assert.equal((await getJson('matches/m.json')).status,'SCHEDULED');
+  assert.equal((await listJson('medals/')).length,0);assert.equal((await listJson('ranking-events/')).length,0);
+ }finally{if(realPostgres){await query('DROP TRIGGER soc_test_failure ON soc_records');await query('DROP FUNCTION soc_test_failure()');}}
+ assert.equal((await call(ops,'result','staff',{matchId:'m',winnerUserId:'a',winMethod:'POINTS'})).statusCode,200);
+ assert.equal((await listJson('medals/')).length,2);
+});
+
+test('backup restore preserves SOC IDs and refuses nonempty or corrupt targets atomically',async()=>{
+ const {restoreSnapshot}=await import('../lib/restore.js');
+ const snapshot={format:'soc-blob-backup-v1',records:[{path:'users/restored.json',value:{id:'restored',socId:'SOC-ORIGINAL',email:'restore@example.test'}}]};
+ assert.equal((await restoreSnapshot(snapshot)).count,1);
+ assert.equal((await getJson('users/restored.json')).socId,'SOC-ORIGINAL');
+ await assert.rejects(restoreSnapshot(snapshot),/restore_target_not_empty/);
+ await query('TRUNCATE soc_records');
+ await assert.rejects(restoreSnapshot({...snapshot,records:[...snapshot.records,{path:'bad/path/invalid.json',value:{id:'invalid'}}]}));
+ assert.equal((await listJson('users/')).length,0);
+});
+
+
+test('concurrent account registration preserves one email index and SOC identity',async()=>{
+ const body={name:'Concurrent Test',email:'duplicate@example.test',password:'isolated-test-password',consent:true};
+ const result=await Promise.all([call(auth,'register','',body),call(auth,'register','',body)]);
+ assert.deepEqual(result.map(r=>r.statusCode).sort(),[201,409]);
+ assert.equal((await listJson('users/')).length,1);assert.equal((await listJson('user-email/')).length,1);assert.equal((await listJson('sessions/')).length,1);
+});
+
+test('result correction retracts downstream results and certificates, then permits consistent replay',async()=>{
+ await fixture();await person('admin',['ADMIN']);await person('c');await person('d');
+ const divisionKey='GI|ADULT|MALE|WHITE|70|WEIGHT';
+ await seed('brackets/br.json',{id:'br',rankingPolicy:TEST_RULES,tournamentId:'t',divisionKey,athleteCount:4,roundCount:2,status:'PUBLISHED'});
+ const athlete=id=>({userId:id,socId:'SOC-'+id,name:id});
+ await seed('matches/semi1.json',{id:'semi1',bracketId:'br',tournamentId:'t',divisionKey,roundNo:1,status:'SCHEDULED',athleteA:athlete('a'),athleteB:athlete('b'),nextMatchId:'final',nextSlot:'A'});
+ await seed('matches/semi2.json',{id:'semi2',bracketId:'br',tournamentId:'t',divisionKey,roundNo:1,status:'SCHEDULED',athleteA:athlete('c'),athleteB:athlete('d'),nextMatchId:'final',nextSlot:'B'});
+ await seed('matches/final.json',{id:'final',bracketId:'br',tournamentId:'t',divisionKey,roundNo:2,status:'SCHEDULED',sourceMatchA:'semi1',sourceMatchB:'semi2'});
+ for(const [matchId,winnerUserId]of [['semi1','a'],['semi2','c'],['final','a']])assert.equal((await call(ops,'result','staff',{matchId,winnerUserId})).statusCode,200);
+ const cert=await call(member,'certificate','a',{tournamentId:'t'});assert.equal(cert.statusCode,200);
+ const body={matchId:'semi1',reason:'Isolated correction test',acknowledgeDownstreamReset:true};
+ assert.equal((await call(ops,'correct-result','staff',body)).statusCode,403);
+ const corrected=await call(ops,'correct-result','admin',body);assert.equal(corrected.statusCode,200);
+ assert.deepEqual(corrected.body.correction.matchIds,['semi1','final']);
+ assert.equal((await getJson('matches/final.json')).athleteA,null);assert.equal((await getJson('matches/final.json')).athleteB.userId,'c');
+ assert.equal((await listJson('medals/')).length,1);assert((await getJson('certificates/'+cert.body.certificate.code+'.json')).revokedAt);
+ assert.equal((await listJson('ranking-events/')).filter(e=>e.type==='WIN').length,1);
+ for(const [matchId,winnerUserId]of [['semi1','b'],['final','b']])assert.equal((await call(ops,'result','staff',{matchId,winnerUserId})).statusCode,200);
+ const medals=await listJson('medals/');assert.equal(medals.length,4);assert.equal(medals.find(m=>m.medal==='GOLD').athleteUserId,'b');
+ assert.equal((await listJson('ranking-events/')).filter(e=>e.type==='PARTICIPATION').length,4);
+ assert.equal((await listJson('ranking-events/')).filter(e=>e.type==='WIN').length,3);
+ const reissued=await call(member,'certificate','a',{tournamentId:'t'});assert.equal(reissued.statusCode,200);assert.notEqual(reissued.body.certificate.code,cert.body.certificate.code);
+});
+
+
+test('failed logins retain the shared attempt counter despite API rollback',async()=>{
+ for(let i=0;i<10;i++)assert.equal((await call(auth,'login','',{email:'missing@example.test',password:'wrong'})).statusCode,401);
+ const limited=await call(auth,'login','',{email:'MISSING@example.test',password:'wrong'});assert.equal(limited.statusCode,429);
+ const counter=(await query('SELECT bucket,attempts FROM soc_auth_attempts')).rows[0];assert.equal(counter.attempts,11);assert.equal(counter.bucket.length,64);
+ await query("UPDATE soc_auth_attempts SET reset_at=now()-interval '1 second'");
+ assert.equal((await call(auth,'login','',{email:'missing@example.test',password:'wrong'})).statusCode,401);
+});
