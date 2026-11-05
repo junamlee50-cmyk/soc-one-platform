@@ -1,0 +1,43 @@
+name: SOC ONE CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Validate JavaScript syntax
+        run: |
+          set -e
+          for f in api/*.js lib/*.js; do
+            echo "checking $f"
+            node --check "$f"
+          done
+      - name: Validate deployment shape
+        run: |
+          test "$(find api -maxdepth 1 -type f -name '*.js' | wc -l)" -le 12
+          test -f index.html
+          test -f my-soc.html
+          test -f athlete-app.html
+          test -f academy-app.html
+          test -f region-app.html
+          test -f referee-app.html
+          test -f ceo-app.html
+          test -f tournament-ops.html
+          test -f service-worker.js
+          test -f manifest.webmanifest
+      - name: Check forbidden demo API remnants
+        run: |
+          ! find api -mindepth 2 -type f -name '*.js' | grep .
