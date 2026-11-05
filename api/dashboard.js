@@ -1,11 +1,44 @@
-export default function handler(req,res){
-  const role=(req.query.role||'athlete').toLowerCase();
-  const data={
-    athlete:{ranking:'#12',points:620,record:'14W 4L',support:'78/100'},
-    academy:{members:86,activeAthletes:23,teamRanking:'#4',nextEvent:12},
-    region:{kpi:84,grade:'A',academies:18,rank:'#3'},
-    referee:{grade:'B',matches:42,rating:4.8,assignments:3},
-    ceo:{members:1284,academies:118,monthlyRevenue:42600000,cash:71200000}
+import { listJson } from '../lib/blobdb.js';
+import { requireUser } from '../lib/auth.js';
+
+export default async function handler(req,res){
+  if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({ok:false,error:'method_not_allowed'});}
+  const user=await requireUser(req,res); if(!user)return;
+  const role=String(req.query.role||'athlete').toLowerCase();
+  const roles=user.roles||[];
+  const allowed={
+    athlete:['ATHLETE'],academy:['COACH','ACADEMY_ADMIN'],region:['COMMITTEE'],
+    referee:['REFEREE'],ceo:['CEO']
   };
-  res.status(200).json({ok:true,role,data:data[role]||data.athlete,demo:true});
+  if(allowed[role] && !allowed[role].some(r=>roles.includes(r)))return res.status(403).json({ok:false,error:'forbidden'});
+  if(role==='athlete'){
+    const [events,regs]=await Promise.all([listJson('ranking-events/',5000),listJson('registrations/',5000)]);
+    const mine=events.filter(x=>x.athleteUserId===user.id);
+    const points=mine.reduce((s,x)=>s+(Number(x.finalPoints)||0),0);
+    const wins=mine.filter(x=>x.type==='WIN').length;
+    const myRegs=regs.filter(x=>x.userId===user.id && !['CANCELED','REFUNDED'].includes(x.status));
+    return res.status(200).json({ok:true,role,data:{points,wins,registrations:myRegs.length,paid:myRegs.filter(x=>x.paymentStatus==='PAID').length}});
+  }
+  if(role==='academy'){
+    const [academies,regs,events]=await Promise.all([listJson('academies/',1000),listJson('registrations/',10000),listJson('ranking-events/',10000)]);
+    const mine=academies.filter(x=>x.coachUserId===user.id && x.status==='APPROVED');
+    const ids=new Set(mine.map(x=>x.id)); const myRegs=regs.filter(x=>ids.has(x.academyId));
+    const athleteIds=new Set(myRegs.map(x=>x.userId)); const points=events.filter(x=>athleteIds.has(x.athleteUserId)).reduce((s,x)=>s+(Number(x.finalPoints)||0),0);
+    return res.status(200).json({ok:true,role,data:{academies:mine.length,registeredAthletes:athleteIds.size,eventRegistrations:myRegs.length,teamPoints:points}});
+  }
+  if(role==='region'){
+    const [academies,audit]=await Promise.all([listJson('academies/',2000),listJson('audit/',2000)]);
+    return res.status(200).json({ok:true,role,data:{approvedAcademies:academies.filter(x=>x.status==='APPROVED').length,pendingAcademies:academies.filter(x=>x.status==='PENDING').length,activityEvents:audit.length,kpi:'미산정'}});
+  }
+  if(role==='referee'){
+    const matches=await listJson('matches/',5000);
+    const judged=matches.filter(x=>x.resultBy===user.id);
+    return res.status(200).json({ok:true,role,data:{completedMatches:judged.length,scheduled:matches.filter(x=>x.status==='SCHEDULED').length,assignments:0,rating:'-'}});
+  }
+  if(role==='ceo'){
+    const [users,academies,tournaments,regs,audit]=await Promise.all([listJson('users/',5000),listJson('academies/',2000),listJson('tournaments/',1000),listJson('registrations/',10000),listJson('audit/',3000)]);
+    const paid=regs.filter(x=>x.paymentStatus==='PAID').reduce((s,x)=>s+(Number(x.amount)||0),0);
+    return res.status(200).json({ok:true,role,data:{members:users.filter(x=>x.status==='ACTIVE').length,academies:academies.filter(x=>x.status==='APPROVED').length,tournaments:tournaments.length,paidRevenue:paid,registrations:regs.length,auditEvents:audit.length}});
+  }
+  return res.status(400).json({ok:false,error:'unknown_role'});
 }
