@@ -13,7 +13,7 @@ export default async function handler(req,res){
     if(!name||!level||!startAt) return res.status(400).json({ok:false,error:'required_fields'});
     const id=makeId('trn');
     const row={id,name,level,venueName,venueAddress:clean(b.venueAddress,300),countryCode:clean(b.countryCode,2)||'KR',startAt,
-      registrationOpenAt:clean(b.registrationOpenAt,40),registrationCloseAt:clean(b.registrationCloseAt,40),
+      registrationOpenAt:clean(b.registrationOpenAt,40),earlyUntil:clean(b.earlyUntil,40),regularUntil:clean(b.regularUntil,40),registrationCloseAt:clean(b.registrationCloseAt,40),
       status:clean(b.status,30)||'DRAFT',rankingMultiplier:Number(b.rankingMultiplier)||1,
       fees:{early:Number(b.earlyFee)||0,regular:Number(b.regularFee)||0,late:Number(b.lateFee)||0,extra:Number(b.extraFee)||0},
       createdBy:user.id,createdAt:now(),updatedAt:now()};
