@@ -1,32 +1,41 @@
-import crypto from 'node:crypto';
-
-const users = new Map();
-
-function socId(){
-  return 'SOC-' + crypto.randomBytes(4).toString('hex').toUpperCase();
-}
-function clean(v,max=120){
-  if(typeof v!=='string') return '';
-  return v.trim().replace(/[<>]/g,'').slice(0,max);
-}
+import { getJson, putJson, hash, clean, makeId, makeSocId, passwordHash, verifyPassword, now } from '../lib/blobdb.js';
+import { createSession, destroySession, requireUser } from '../lib/auth.js';
 
 export default async function handler(req,res){
-  if(req.method==='POST'){
-    const b=req.body||{};
-    const email=clean(b.email,255).toLowerCase();
-    const name=clean(b.name,80);
-    const role=clean(b.role,30)||'ATHLETE';
-    if(!email||!name) return res.status(400).json({ok:false,error:'required_fields'});
-    let u=users.get(email);
-    if(!u){
-      u={id:crypto.randomUUID(),socId:socId(),email,name,roles:[role],createdAt:new Date().toISOString()};
-      users.set(email,u);
-    }else if(!u.roles.includes(role)) u.roles.push(role);
-    return res.status(200).json({ok:true,user:u});
+  const op=String(req.query.op||'').toLowerCase();
+
+  if(op==='register'){
+    if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
+    const b=req.body||{}; const name=clean(b.name,80),email=clean(b.email,255).toLowerCase(),password=typeof b.password==='string'?b.password:'',requestedRole=clean(b.role,20).toUpperCase(),consent=Boolean(b.consent);
+    if(!name||!email||!email.includes('@'))return res.status(400).json({ok:false,error:'invalid_profile'});
+    if(password.length<10)return res.status(400).json({ok:false,error:'weak_password',message:'비밀번호는 10자 이상이어야 합니다.'});
+    if(!consent)return res.status(400).json({ok:false,error:'consent_required'});
+    const role=requestedRole==='COACH'?'COACH':'ATHLETE',emailKey=hash(email);
+    if(await getJson('user-email/'+emailKey+'.json'))return res.status(409).json({ok:false,error:'email_exists'});
+    const id=makeId('usr'),ph=passwordHash(password);
+    const user={id,socId:makeSocId(),name,email,emailKey,roles:[role,'MEMBER'],passwordSalt:ph.salt,passwordHash:ph.hash,status:'ACTIVE',countryCode:'KR',locale:'ko-KR',consentAt:now(),createdAt:now(),updatedAt:now()};
+    await putJson('users/'+id+'.json',user,{overwrite:false});await putJson('user-email/'+emailKey+'.json',{userId:id,emailKey,createdAt:now()},{overwrite:false});await createSession(res,user);
+    return res.status(201).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles}});
   }
-  if(req.method==='GET'){
-    return res.status(200).json({ok:true,demo:true,message:'Demo auth service is online'});
+
+  if(op==='login'){
+    if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
+    const b=req.body||{},email=clean(b.email,255).toLowerCase(),password=typeof b.password==='string'?b.password:'';
+    const idx=await getJson('user-email/'+hash(email)+'.json');if(!idx)return res.status(401).json({ok:false,error:'invalid_credentials'});
+    const user=await getJson('users/'+idx.userId+'.json');if(!user||user.status!=='ACTIVE'||!verifyPassword(password,user.passwordSalt,user.passwordHash))return res.status(401).json({ok:false,error:'invalid_credentials'});
+    await createSession(res,user);return res.status(200).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles}});
   }
-  res.setHeader('Allow','GET, POST');
-  return res.status(405).end();
+
+  if(op==='me'){
+    if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({ok:false,error:'method_not_allowed'});}
+    const user=await requireUser(req,res);if(!user)return;
+    return res.status(200).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles,countryCode:user.countryCode,locale:user.locale,committeeRegion:user.committeeRegion||null}});
+  }
+
+  if(op==='logout'){
+    if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
+    await destroySession(req,res);return res.status(200).json({ok:true});
+  }
+
+  return res.status(404).json({ok:false,error:'unknown_auth_operation'});
 }
