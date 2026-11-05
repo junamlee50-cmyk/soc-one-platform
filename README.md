@@ -1,11 +1,29 @@
 # SOC ONE Platform
 
-STATE OF CONTROL 글로벌 주짓수 연맹·대회·선수 플랫폼입니다.
+**STATE OF CONTROL**의 글로벌 주짓수 연맹·대회·선수 생태계를 위한 통합 웹 플랫폼입니다.
 
-## Current scope
-- Public SOC landing page
-- Competition preview
-- Athlete / Academy / Regional Committee / CEO role dashboards
-- Vercel deployment
+## 핵심 구조
+- 공개 브랜드 홈페이지
+- SOC 선수 ID / MY SOC
+- 아카데미·연맹 네트워크 / MY ACADEMY
+- 지역위원 KPI / MY REGION
+- 심판 시스템 / MY REFEREE
+- 대회 접수·계체·대진·결과
+- 공식 전적·메달·랭킹
+- 선수지원·엘리트·프로 계약
+- 국내외 훈련 네트워크
+- SOC PRO NIGHT
+- SOC MEDIA
+- SOC GEAR
+- CEO 운영 대시보드
 
-향후 실제 회원인증, 대회접수·결제, 대진, 계체, 경기결과, 랭킹, 선수지원, 미디어, 글로벌 훈련 네트워크를 단계적으로 연결합니다.
+## 현재 배포 범위
+현재 main은 **공개 프리뷰 프론트엔드**입니다.
+실제 개인정보 저장, 인증, 결제, 대진, 계체, 경기결과, 랭킹 계산, 실적증명서, 후원선정, 재무 데이터는 백엔드와 운영 규정 확정 후 단계적으로 연결합니다.
+
+## 운영 원칙
+1. 랭킹과 선수후원 선정은 분리
+2. 회원·아카데미 기본 가입비 0원 정책
+3. 선수지원은 예산·정원·정량평가 기반
+4. 대회 데이터가 선수·아카데미·지역 KPI로 자동 연결
+5. 글로벌 확장을 고려한 SOC ID와 역할기반 권한 구조
