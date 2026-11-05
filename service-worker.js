@@ -1,0 +1,5 @@
+const CACHE='soc-one-v1';
+const ASSETS=['/','/index.html','/my-soc.html','/competition.html','/academies.html','/ranking.html','/support.html','/pro.html','/media.html','/gear.html','/admin.html','/rules.html','/athlete-app.html','/academy-app.html','/region-app.html','/referee-app.html','/tournament-ops.html','/assets/soc.css','/assets/soc.js','/favicon.svg','/manifest.webmanifest','/offline.html'];
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).then(r=>{const clone=r.clone();caches.open(CACHE).then(c=>c.put(e.request,clone));return r}).catch(()=>caches.match(e.request).then(r=>r||caches.match('/offline.html'))))});
