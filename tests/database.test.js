@@ -19,6 +19,7 @@ if(!realPostgres){
 }
 process.env.DATABASE_URL=process.env.TEST_DATABASE_URL||'postgresql://unused-local-test';
 process.env.SOC_DATA_BACKEND='postgres';
+process.env.SOC_TICKET_SIGNING_KEY='postgres-test-signing-key-not-for-deployment';
 const { query, inTransaction, closePool }=await import('../lib/database.js');
 const { putJson, getJson, listJson, hash }=await import('../lib/blobdb.js');
 const member=(await import('../api/member.js')).default;
@@ -41,7 +42,7 @@ async function fixture(capacity=10){
  await seed('tournaments/t.json',{id:'t',rulesId:'TEST-RULES',name:'SQL Test',status:'REGISTRATION_OPEN',startAt:'2027-02-01',fees:{regular:59000},rankingMultiplier:1});
  await seed('divisions/d.json',{id:'d',tournamentId:'t',gender:'MALE',ageMin:18,ageMax:40,key:'GI|ADULT|MALE|WHITE|70|WEIGHT',discipline:'GI',ageGroup:'ADULT',belt:'WHITE',weightClass:'70',capacity,weightLimitKg:70});
 }
-beforeEach(async()=>{await query('DELETE FROM soc_records');failPath=null;});
+beforeEach(async()=>{await query('DELETE FROM soc_records');await query('DELETE FROM soc_auth_attempts');failPath=null;});
 after(async()=>{await closePool();if(local)await local.close();});
 
 test('SQL rollback removes all writes after mid-operation failure',async()=>{
@@ -109,4 +110,37 @@ test('concurrent account registration preserves one email index and SOC identity
  const result=await Promise.all([call(auth,'register','',body),call(auth,'register','',body)]);
  assert.deepEqual(result.map(r=>r.statusCode).sort(),[201,409]);
  assert.equal((await listJson('users/')).length,1);assert.equal((await listJson('user-email/')).length,1);assert.equal((await listJson('sessions/')).length,1);
+});
+
+test('result correction retracts downstream results and certificates, then permits consistent replay',async()=>{
+ await fixture();await person('admin',['ADMIN']);await person('c');await person('d');
+ const divisionKey='GI|ADULT|MALE|WHITE|70|WEIGHT';
+ await seed('brackets/br.json',{id:'br',rankingPolicy:TEST_RULES,tournamentId:'t',divisionKey,athleteCount:4,roundCount:2,status:'PUBLISHED'});
+ const athlete=id=>({userId:id,socId:'SOC-'+id,name:id});
+ await seed('matches/semi1.json',{id:'semi1',bracketId:'br',tournamentId:'t',divisionKey,roundNo:1,status:'SCHEDULED',athleteA:athlete('a'),athleteB:athlete('b'),nextMatchId:'final',nextSlot:'A'});
+ await seed('matches/semi2.json',{id:'semi2',bracketId:'br',tournamentId:'t',divisionKey,roundNo:1,status:'SCHEDULED',athleteA:athlete('c'),athleteB:athlete('d'),nextMatchId:'final',nextSlot:'B'});
+ await seed('matches/final.json',{id:'final',bracketId:'br',tournamentId:'t',divisionKey,roundNo:2,status:'SCHEDULED',sourceMatchA:'semi1',sourceMatchB:'semi2'});
+ for(const [matchId,winnerUserId]of [['semi1','a'],['semi2','c'],['final','a']])assert.equal((await call(ops,'result','staff',{matchId,winnerUserId})).statusCode,200);
+ const cert=await call(member,'certificate','a',{tournamentId:'t'});assert.equal(cert.statusCode,200);
+ const body={matchId:'semi1',reason:'Isolated correction test',acknowledgeDownstreamReset:true};
+ assert.equal((await call(ops,'correct-result','staff',body)).statusCode,403);
+ const corrected=await call(ops,'correct-result','admin',body);assert.equal(corrected.statusCode,200);
+ assert.deepEqual(corrected.body.correction.matchIds,['semi1','final']);
+ assert.equal((await getJson('matches/final.json')).athleteA,null);assert.equal((await getJson('matches/final.json')).athleteB.userId,'c');
+ assert.equal((await listJson('medals/')).length,1);assert((await getJson('certificates/'+cert.body.certificate.code+'.json')).revokedAt);
+ assert.equal((await listJson('ranking-events/')).filter(e=>e.type==='WIN').length,1);
+ for(const [matchId,winnerUserId]of [['semi1','b'],['final','b']])assert.equal((await call(ops,'result','staff',{matchId,winnerUserId})).statusCode,200);
+ const medals=await listJson('medals/');assert.equal(medals.length,4);assert.equal(medals.find(m=>m.medal==='GOLD').athleteUserId,'b');
+ assert.equal((await listJson('ranking-events/')).filter(e=>e.type==='PARTICIPATION').length,4);
+ assert.equal((await listJson('ranking-events/')).filter(e=>e.type==='WIN').length,3);
+ const reissued=await call(member,'certificate','a',{tournamentId:'t'});assert.equal(reissued.statusCode,200);assert.notEqual(reissued.body.certificate.code,cert.body.certificate.code);
+});
+
+
+test('failed logins retain the shared attempt counter despite API rollback',async()=>{
+ for(let i=0;i<10;i++)assert.equal((await call(auth,'login','',{email:'missing@example.test',password:'wrong'})).statusCode,401);
+ const limited=await call(auth,'login','',{email:'MISSING@example.test',password:'wrong'});assert.equal(limited.statusCode,429);
+ const counter=(await query('SELECT bucket,attempts FROM soc_auth_attempts')).rows[0];assert.equal(counter.attempts,11);assert.equal(counter.bucket.length,64);
+ await query("UPDATE soc_auth_attempts SET reset_at=now()-interval '1 second'");
+ assert.equal((await call(auth,'login','',{email:'missing@example.test',password:'wrong'})).statusCode,401);
 });

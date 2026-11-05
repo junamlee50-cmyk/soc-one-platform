@@ -3,7 +3,7 @@ import { seasonRanking, DEFAULT_SEASON } from '../lib/ranking.js';
 import { apiHandler } from '../lib/http.js';
 import crypto from 'node:crypto';
 import QRCode from 'qrcode';
-import { listJson, putJson, getJson, clean, makeId, now } from '../lib/blobdb.js';
+import { listJson, putJson, getJson, clean, makeId, hash, now } from '../lib/blobdb.js';
 import { requireUser } from '../lib/auth.js';
 
 import { ticketSign, signingKey } from '../lib/tickets.js';
@@ -80,13 +80,13 @@ async function handler(req,res){
       return res.status(200).json({ok:true,role,season,data:{academies:mine.length,registeredAthletes:athleteIds.size,eventRegistrations:myRegs.length,teamPoints:Math.round(teamPoints*100)/100}});
     }
     if(role==='region'){const region=user.committeeRegion||'', [academies,regs,audit]=await Promise.all([listJson('academies/',2000),listJson('registrations/',10000),listJson('audit/',2000)]),scoped=region?academies.filter(x=>x.region===region):[],ids=new Set(scoped.map(x=>x.id)),scopedRegs=regs.filter(x=>ids.has(x.academyId));return res.status(200).json({ok:true,role,data:{region:region||'미지정',approvedAcademies:scoped.filter(x=>x.status==='APPROVED').length,pendingAcademies:scoped.filter(x=>x.status==='PENDING').length,eventRegistrations:scopedRegs.length,activeAthletes:new Set(scopedRegs.map(x=>x.userId)).size,activityEvents:audit.filter(x=>ids.has(x.entityId)).length}});}
-    if(role==='referee'){const matches=await listJson('matches/',5000),judged=matches.filter(x=>x.resultBy===user.id);return res.status(200).json({ok:true,role,data:{completedMatches:judged.length,scheduled:matches.filter(x=>x.status==='SCHEDULED').length,assignments:0,rating:'-'}});}
+    if(role==='referee'){const assignments=(await listJson('referee-assignments/',1000,{refereeUserId:user.id})).filter(a=>a.status==='ASSIGNED');const matches=(await listJson('matches/')).filter(m=>assignments.some(a=>a.tournamentId===m.tournamentId&&Number(a.matNo)>0&&Number(a.matNo)===Number(m.matNo))),judged=matches.filter(x=>x.resultBy===user.id&&x.status==='COMPLETED');return res.status(200).json({ok:true,role,data:{completedMatches:judged.length,scheduled:matches.filter(x=>x.status==='SCHEDULED').length,assignments:assignments.length,rating:'-'}});}
     if(role==='ceo'){const [users,academies,tournaments,regs,audit]=await Promise.all([listJson('users/',5000),listJson('academies/',2000),listJson('tournaments/',1000),listJson('registrations/',10000),listJson('audit/',3000)]);return res.status(200).json({ok:true,role,data:{members:users.filter(x=>x.status==='ACTIVE').length,academies:academies.filter(x=>x.status==='APPROVED').length,tournaments:tournaments.length,paidRevenue:regs.filter(x=>x.paymentStatus==='PAID').reduce((s,x)=>s+(Number(x.amount)||0),0),registrations:regs.length,auditEvents:audit.length}});}
     return res.status(400).json({ok:false,error:'unknown_role'});
   }
 
   if(op==='ticket'||op==='ticket-qr'){
-    const user=await requireUser(req,res,['ATHLETE']);if(!user)return;const id=clean(req.query.registrationId,80),reg=await getJson('registrations/'+id+'.json');if(!reg||reg.userId!==user.id)return res.status(404).json({ok:false,error:'registration_not_found'});
+    const user=await requireUser(req,res,['ATHLETE']);if(!user)return;const id=clean(req.query.registrationId,80),reg=await getJson('registrations/'+id+'.json');if(!reg||reg.userId!==user.id)return res.status(404).json({ok:false,error:'registration_not_found'});if(reg.status!=='REGISTERED'||reg.paymentStatus!=='PAID')return res.status(409).json({ok:false,error:'paid_registration_required',message:'입금 확인 후 참가증을 발급할 수 있습니다.'});const event=await getJson('tournaments/'+reg.tournamentId+'.json');if(!event||event.status==='CANCELED')return res.status(409).json({ok:false,error:'tournament_inactive'});
     const payload='SOC:'+reg.id+':'+ticketSign(reg.id);
     if(op==='ticket')return res.status(200).json({ok:true,ticket:{registrationId:reg.id,tournamentId:reg.tournamentId,socId:user.socId,athleteName:user.name,payload,paymentStatus:reg.paymentStatus,checkInStatus:reg.checkInStatus||'NOT_CHECKED_IN'}});
     const svg=await QRCode.toString(payload,{type:'svg',margin:1,width:280,errorCorrectionLevel:'M'});res.setHeader('Content-Type','image/svg+xml; charset=utf-8');res.setHeader('Cache-Control','private, no-store');return res.status(200).send(svg);
@@ -134,12 +134,12 @@ async function handler(req,res){
       const mineMatches=matches.filter(x=>x.tournamentId===tournamentId&&x.status==='COMPLETED'&&(x.athleteA?.userId===u.id||x.athleteB?.userId===u.id));
       if(!mineMatches.length)return res.status(409).json({ok:false,error:'no_completed_result'});
       const mineEvents=events.filter(x=>x.tournamentId===tournamentId&&x.athleteUserId===u.id&&!x.voidedAt),mineMedals=medals.filter(x=>x.tournamentId===tournamentId&&x.athleteUserId===u.id);
-      const code=crypto.createHmac('sha256',signingKey()).update('CERT|'+u.id+'|'+tournamentId).digest('base64url').slice(0,28);
+      const code=crypto.createHmac('sha256',signingKey()).update('CERT|'+u.id+'|'+tournamentId+'|'+hash(JSON.stringify(mineEvents.map(e=>[e.id,e.finalPoints]).sort()))).digest('base64url').slice(0,28);
       const cert={code,socId:u.socId,athleteName:profile?.displayName||u.name,academyName:profile?.academyName||'',belt:profile?.belt||'',tournamentId,tournamentName:trn.name,eventDate:trn.startAt||'',wins:mineEvents.filter(x=>x.type==='WIN').length,points:mineEvents.reduce((s,x)=>s+(Number(x.finalPoints)||0),0),medals:mineMedals.map(x=>({medal:x.medal,absolute:x.absolute})),issuedAt:now()};
       await putJson('certificates/'+code+'.json',cert);
       return res.status(200).json({ok:true,certificate:cert});
     }
-    const code=clean(req.query.code,60);const cert=await getJson('certificates/'+code+'.json');if(!cert||cert.socId!==u.socId)return res.status(404).end();
+    const code=clean(req.query.code,60);const cert=await getJson('certificates/'+code+'.json');if(!cert||cert.revokedAt||cert.socId!==u.socId)return res.status(404).end();
     const verifyUrl='https://'+(req.headers.host||'soc-one-platform.vercel.app')+'/verify.html?code='+encodeURIComponent(code);const svg=await QRCode.toString(verifyUrl,{type:'svg',margin:1,width:260,errorCorrectionLevel:'M'});res.setHeader('Content-Type','image/svg+xml; charset=utf-8');res.setHeader('Cache-Control','private, no-store');return res.status(200).send(svg);
   }
 

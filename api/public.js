@@ -86,6 +86,8 @@ async function handler(req,res){
   if(op==='verify-cert'){
     const code=clean(req.query.code,60);if(!code)return res.status(400).json({ok:false,error:'code_required'});
     const cert=await getJson('certificates/'+code+'.json');if(!cert)return res.status(404).json({ok:false,valid:false,error:'certificate_not_found'});
+    const tournament=await getJson('tournaments/'+cert.tournamentId+'.json');
+    if(cert.revokedAt||!tournament||tournament.status==='CANCELED')return res.status(409).json({ok:false,valid:false,error:'certificate_revoked',message:'결과 정정 또는 대회 취소로 재발급이 필요합니다.'});
     return res.status(200).json({ok:true,valid:true,certificate:cert});
   }
 

@@ -1,5 +1,7 @@
 import { bracketFactor, validateRules } from '../lib/rules.js';
 import { scheduleError } from '../lib/scheduling.js';
+import { retractResult } from '../lib/corrections.js';
+import { usesPostgres } from '../lib/database.js';
 import { apiHandler } from '../lib/http.js';
 import { validTicketSignature } from '../lib/tickets.js';
 import { listJson, putJson, getJson, clean, makeId, hash, now } from '../lib/blobdb.js';
@@ -39,13 +41,14 @@ async function handler(req,res){
   if(op==='checkin'){
     if(!isStaff)return res.status(403).json({ok:false,error:'staff_required'});
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const payload=clean(req.body?.payload,220),m=/^SOC:([^:]+):([^:]+)$/.exec(payload||'');if(!m)return res.status(400).json({ok:false,error:'invalid_ticket'});const [,id,sig]=m;if(!validTicketSignature(id,sig))return res.status(400).json({ok:false,error:'invalid_signature'});const reg=await getJson('registrations/'+id+'.json');if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});if(!allowedTournament(reg.tournamentId))return deny();if(reg.status!=='REGISTERED')return res.status(409).json({ok:false,error:'registration_inactive'});if(reg.paymentStatus!=='PAID')return res.status(409).json({ok:false,error:'payment_not_completed'});if(reg.checkInStatus==='CHECKED_IN')return res.status(200).json({ok:true,registration:reg});const before={...reg};reg.checkInStatus='CHECKED_IN';reg.checkedInAt=now();reg.checkedInBy=user.id;reg.updatedAt=now();await putJson('registrations/'+id+'.json',reg);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'CHECK_IN',entityType:'REGISTRATION',entityId:id,before,after:reg,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,registration:reg});
+    const payload=clean(req.body?.payload,220),m=/^SOC:([^:]+):([^:]+)$/.exec(payload||'');if(!m)return res.status(400).json({ok:false,error:'invalid_ticket'});const [,id,sig]=m;if(!validTicketSignature(id,sig))return res.status(400).json({ok:false,error:'invalid_signature'});const reg=await getJson('registrations/'+id+'.json');if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});if(!allowedTournament(reg.tournamentId))return deny();const event=await getJson('tournaments/'+reg.tournamentId+'.json');if(!event||event.status==='CANCELED')return res.status(409).json({ok:false,error:'tournament_inactive'});if(reg.status!=='REGISTERED')return res.status(409).json({ok:false,error:'registration_inactive'});if(reg.paymentStatus!=='PAID')return res.status(409).json({ok:false,error:'payment_not_completed'});if(reg.checkInStatus==='CHECKED_IN')return res.status(409).json({ok:false,error:'ticket_already_used',message:'이미 체크인한 참가증입니다.',checkedInAt:reg.checkedInAt});const before={...reg};reg.checkInStatus='CHECKED_IN';reg.checkedInAt=now();reg.checkedInBy=user.id;reg.updatedAt=now();await putJson('registrations/'+id+'.json',reg);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'CHECK_IN',entityType:'REGISTRATION',entityId:id,before,after:reg,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,registration:reg});
   }
 
   if(op==='weighin'){
     if(!isStaff)return res.status(403).json({ok:false,error:'staff_required'});
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const b=req.body||{},registrationId=clean(b.registrationId,80),weight=Number(b.weightKg);if(!registrationId||!Number.isFinite(weight)||weight<=0)return res.status(400).json({ok:false,error:'invalid_input'});const reg=await getJson('registrations/'+registrationId+'.json');if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});if(!allowedTournament(reg.tournamentId))return deny();if(reg.status!=='REGISTERED')return res.status(409).json({ok:false,error:'registration_inactive'});if(reg.paymentStatus!=='PAID')return res.status(409).json({ok:false,error:'payment_not_completed'});
+    const b=req.body||{},registrationId=clean(b.registrationId,80),weight=Number(b.weightKg);if(!registrationId||!Number.isFinite(weight)||weight<=0)return res.status(400).json({ok:false,error:'invalid_input'});const reg=await getJson('registrations/'+registrationId+'.json');if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});if(!allowedTournament(reg.tournamentId))return deny();const event=await getJson('tournaments/'+reg.tournamentId+'.json');if(!event||event.status==='CANCELED')return res.status(409).json({ok:false,error:'tournament_inactive'});if(reg.status!=='REGISTERED')return res.status(409).json({ok:false,error:'registration_inactive'});if(reg.paymentStatus!=='PAID')return res.status(409).json({ok:false,error:'payment_not_completed'});
+    if(reg.checkInStatus!=='CHECKED_IN')return res.status(409).json({ok:false,error:'checkin_required'});
     const div=reg.divisionId?await getJson('divisions/'+reg.divisionId+'.json'):null;
     if(!div||(!div.absolute&&(!Number.isFinite(Number(div.weightLimitKg))||Number(div.weightLimitKg)<=0)))return res.status(409).json({ok:false,error:'division_weight_limit_required'});
     const limit=div.absolute?0:Number(div.weightLimitKg),passed=div.absolute||weight<=limit;
@@ -57,8 +60,9 @@ async function handler(req,res){
     if(!['STAFF','ADMIN','CEO'].some(r=>(user.roles||[]).includes(r)))return res.status(403).json({ok:false,error:'forbidden'});
     const b=req.body||{},tournamentId=clean(b.tournamentId,80),divisionKey=clean(b.divisionKey,80);if(!tournamentId||!divisionKey)return res.status(400).json({ok:false,error:'required_fields'});
     const tournament=await getJson('tournaments/'+tournamentId+'.json'),rules=tournament?.rulesId?await getJson('rules/'+tournament.rulesId+'.json'):null;
+    if(!tournament||tournament.status==='CANCELED')return res.status(409).json({ok:false,error:'tournament_inactive'});
     if(!rules||rules.status!=='APPROVED'||validateRules(rules))return res.status(409).json({ok:false,error:'ranking_rules_unapproved'});
-    const existingBracket=(await listJson('brackets/',3000)).find(x=>x.tournamentId===tournamentId&&x.divisionKey===divisionKey&&x.status==='PUBLISHED');if(existingBracket)return res.status(409).json({ok:false,error:'bracket_already_exists',bracketId:existingBracket.id});const regs=(await listJson('registrations/',5000)).filter(x=>x.tournamentId===tournamentId&&x.divisionKey===divisionKey&&x.status==='REGISTERED'&&x.paymentStatus==='PAID'&&x.weighInStatus==='PASSED');if(regs.length<2)return res.status(400).json({ok:false,error:'not_enough_eligible_athletes',count:regs.length});
+    const existingBracket=(await listJson('brackets/',3000)).find(x=>x.tournamentId===tournamentId&&x.divisionKey===divisionKey&&x.status==='PUBLISHED');if(existingBracket)return res.status(409).json({ok:false,error:'bracket_already_exists',bracketId:existingBracket.id});const regs=(await listJson('registrations/',5000)).filter(x=>x.tournamentId===tournamentId&&x.divisionKey===divisionKey&&x.status==='REGISTERED'&&x.paymentStatus==='PAID'&&x.checkInStatus==='CHECKED_IN'&&x.weighInStatus==='PASSED');if(regs.length<2)return res.status(400).json({ok:false,error:'not_enough_eligible_athletes',count:regs.length});
     const bracketId=makeId('brk'),size=nextPow2(regs.length),roundCount=Math.log2(size),roundIds=[];for(let r=0;r<roundCount;r++){const count=size/(2**(r+1));roundIds.push(Array.from({length:count},()=>makeId('mat')))}
     const slots=seededSlots(regs,size,tournamentId+divisionKey),matches=[],map=new Map();
     for(let r=0;r<roundCount;r++){for(let i=0;i<roundIds[r].length;i++){const id=roundIds[r][i],nextId=r<roundCount-1?roundIds[r+1][Math.floor(i/2)]:null,m={id,bracketId,tournamentId,divisionKey,roundNo:r+1,sequenceNo:i+1,athleteA:r===0?slots[i*2]:null,athleteB:r===0?slots[i*2+1]:null,sourceMatchA:r===0?null:roundIds[r-1][i*2],sourceMatchB:r===0?null:roundIds[r-1][i*2+1],nextMatchId:nextId,nextSlot:nextId?(i%2===0?'A':'B'):null,winnerUserId:null,status:'SCHEDULED',createdAt:now()};matches.push(m);map.set(id,m);}}
@@ -79,11 +83,23 @@ async function handler(req,res){
     return res.status(200).json({ok:true,match:candidate});
   }
 
+  if(op==='correct-result'){
+    if(!(user.roles||[]).some(r=>['ADMIN','CEO'].includes(r)))return res.status(403).json({ok:false,error:'admin_required'});
+    if(!usesPostgres())return res.status(503).json({ok:false,error:'transactional_database_required'});
+    const b=req.body||{},match=await getJson('matches/'+clean(b.matchId,80)+'.json'),reason=clean(b.reason,500);
+    if(!match)return res.status(404).json({ok:false,error:'match_not_found'});
+    if(match.status!=='COMPLETED')return res.status(409).json({ok:false,error:'match_not_completed'});
+    if(!reason||b.acknowledgeDownstreamReset!==true)return res.status(400).json({ok:false,error:'correction_confirmation_required'});
+    const correction=await retractResult(match,user.id,reason);
+    return res.status(200).json({ok:true,correction});
+  }
+
   if(op==='result'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
     const b=req.body||{},matchId=clean(b.matchId,80),winnerUserId=clean(b.winnerUserId,80),match=await getJson('matches/'+matchId+'.json');
     if(!match)return res.status(404).json({ok:false,error:'match_not_found'});
     if(!allowedMatch(match))return res.status(403).json({ok:false,error:'mat_not_assigned'});
+    const event=await getJson('tournaments/'+match.tournamentId+'.json');if(!event||event.status==='CANCELED')return res.status(409).json({ok:false,error:'tournament_inactive'});
     if(match.status==='COMPLETED')return res.status(409).json({ok:false,error:'already_completed'});
     const participants=[match.athleteA,match.athleteB].filter(Boolean),winner=participants.find(x=>x.userId===winnerUserId),loser=participants.find(x=>x.userId!==winnerUserId);
     if(!winner||!loser)return res.status(400).json({ok:false,error:'winner_not_in_match'});
@@ -97,7 +113,7 @@ async function handler(req,res){
     for(const athlete of participants){if(!existingEvents.some(e=>e.athleteUserId===athlete.userId&&e.tournamentId===match.tournamentId&&e.type==='PARTICIPATION')){const p={id:makeId('rnk'),athleteUserId:athlete.userId,tournamentId:match.tournamentId,divisionKey:match.divisionKey,matchId:match.id,type:'PARTICIPATION',rulesId:rules.id,participationCap:rules.participation,basePoints:rules.participation,multiplier:1,finalPoints:rules.participation,createdAt:now(),createdBy:user.id};await putJson('ranking-events/'+p.id+'.json',p,{overwrite:false});}}
     const win={id:makeId('rnk'),athleteUserId:winnerUserId,tournamentId:match.tournamentId,divisionKey:match.divisionKey,matchId:match.id,type:'WIN',rulesId:rules.id,basePoints:rules.win,multiplier,finalPoints:rules.win*multiplier,createdAt:now(),createdBy:user.id};await putJson('ranking-events/'+win.id+'.json',win,{overwrite:false});
     const isAbs=String(match.divisionKey||'').endsWith('|ABS'),count=Number(bracket?.athleteCount)||2,factor=bracketFactor(count,rules);
-    const award=async(athlete,type,base)=>{const evt={id:makeId('rnk'),athleteUserId:athlete.userId,tournamentId:match.tournamentId,divisionKey:match.divisionKey,matchId:match.id,type,rulesId:rules.id,basePoints:base,multiplier,bracketFactor:factor,finalPoints:base*multiplier*factor,createdAt:now(),createdBy:user.id};await putJson('ranking-events/'+evt.id+'.json',evt,{overwrite:false});const med={id:makeId('med'),athleteUserId:athlete.userId,tournamentId:match.tournamentId,divisionKey:match.divisionKey,medal:type.replace('ABS_',''),absolute:isAbs,awardedAt:now()};await putJson('medals/'+med.id+'.json',med,{overwrite:false});};
+    const award=async(athlete,type,base)=>{const evt={id:makeId('rnk'),athleteUserId:athlete.userId,tournamentId:match.tournamentId,divisionKey:match.divisionKey,matchId:match.id,type,rulesId:rules.id,basePoints:base,multiplier,bracketFactor:factor,finalPoints:base*multiplier*factor,createdAt:now(),createdBy:user.id};await putJson('ranking-events/'+evt.id+'.json',evt,{overwrite:false});const med={id:makeId('med'),matchId:match.id,athleteUserId:athlete.userId,tournamentId:match.tournamentId,divisionKey:match.divisionKey,medal:type.replace('ABS_',''),absolute:isAbs,awardedAt:now()};await putJson('medals/'+med.id+'.json',med,{overwrite:false});};
     if(bracket&&match.roundNo===bracket.roundCount){await award(winner,isAbs?'ABS_GOLD':'GOLD',rules.medals[isAbs?'ABS_GOLD':'GOLD']);await award(loser,isAbs?'ABS_SILVER':'SILVER',rules.medals[isAbs?'ABS_SILVER':'SILVER']);}
     else if(bracket&&match.roundNo===bracket.roundCount-1){await award(loser,isAbs?'ABS_BRONZE':'BRONZE',rules.medals[isAbs?'ABS_BRONZE':'BRONZE']);}
     await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'MATCH_RESULT',entityType:'MATCH',entityId:match.id,before,after:match,createdAt:now()},{overwrite:false});
@@ -108,6 +124,7 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "correct-result": ["POST"],
   "schedule": ["POST"],
   "registrations": [
     "GET"

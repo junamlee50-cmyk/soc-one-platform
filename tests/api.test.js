@@ -114,7 +114,7 @@ test('referees only see assigned tournaments and cannot edit another event',asyn
   const headers=member('ref',['REFEREE']);tournament();
   put('tournaments/t2.json',{id:'t2',name:'Other event'});
   put('referee-assignments/a.json',{refereeUserId:'ref',tournamentId:'t1',status:'ASSIGNED'});
-  put('registrations/other.json',{id:'other',tournamentId:'t2',status:'REGISTERED',paymentStatus:'PAID'});
+  put('registrations/other.json',{id:'other',tournamentId:'t2',status:'REGISTERED',paymentStatus:'PAID',checkInStatus:'CHECKED_IN'});
   put('matches/other.json',{id:'other',tournamentId:'t2'});
   assert.deepEqual((await call('ops','tournaments',{headers})).body.tournaments.map(t=>t.id),['t1']);
   assert.equal((await call('ops','registrations',{headers})).body.registrations.length,0);
@@ -122,7 +122,7 @@ test('referees only see assigned tournaments and cannot edit another event',asyn
   assert.equal((await call('ops','result',{method:'POST',headers,body:{matchId:'other',winnerUserId:'a'}})).statusCode,403);
 });
 test('ticket generation fails without a signing key; forged check-in is rejected',async()=>{
-  const headers=member();put('registrations/r.json',{id:'r',userId:'athlete'});delete process.env.SOC_TICKET_SIGNING_KEY;
+  tournament();const headers=member();put('registrations/r.json',{id:'r',userId:'athlete',tournamentId:'t1',status:'REGISTERED',paymentStatus:'PAID',checkInStatus:'CHECKED_IN'});delete process.env.SOC_TICKET_SIGNING_KEY;
   assert.equal((await call('member','ticket',{headers,query:{registrationId:'r'}})).statusCode,503);
   process.env.SOC_TICKET_SIGNING_KEY='x'.repeat(32);
   assert.equal((await call('ops','checkin',{method:'POST',headers:member('staff',['STAFF']),body:{payload:'SOC:r:forged'}})).statusCode,400);
@@ -136,10 +136,13 @@ test('two-athlete flow: register, verify payment, check in, weigh, bracket, resu
     const r=await call('member','registrations',{method:'POST',headers,body:{tournamentId:'t1',divisionId:'d1'}});
     assert.equal(r.statusCode,201);const registration=r.body.registration;registrations.push(registration);
     assert.equal((await call('member','registrations',{method:'POST',headers,body:{tournamentId:'t1',divisionId:'d1'}})).statusCode,409);
-    const ticket=(await call('member','ticket',{headers,query:{registrationId:registration.id}})).body.ticket;
+    assert.equal((await call('member','ticket',{headers,query:{registrationId:registration.id}})).statusCode,409);
+    let ticket={payload:'SOC:'+registration.id+':'+ticketSign(registration.id)};
     assert.equal((await call('ops','checkin',{method:'POST',headers:staff,body:{payload:ticket.payload}})).statusCode,409);
     assert.equal((await call('admin','payment-status',{method:'POST',headers:staff,body:{registrationId:registration.id,paymentStatus:'PAID',reference:'TEST',reason:'Isolated automated verification'}})).statusCode,200);
+    ticket=(await call('member','ticket',{headers,query:{registrationId:registration.id}})).body.ticket;
     assert.equal((await call('ops','checkin',{method:'POST',headers:staff,body:{payload:ticket.payload}})).statusCode,200);
+    assert.equal((await call('ops','checkin',{method:'POST',headers:staff,body:{payload:ticket.payload}})).statusCode,409);
     assert.equal((await call('ops','weighin',{method:'POST',headers:staff,body:{registrationId:registration.id,weightKg:69}})).body.weighIn.passed,true);
   }
   const bracket=await call('ops','bracket',{method:'POST',headers:staff,body:{tournamentId:'t1',divisionKey:registrations[0].divisionKey}});
@@ -167,7 +170,7 @@ test('support evaluation rejects negative and infinite component scores',async()
 
 test('weigh-in uses stored division limit and records its audit history',async()=>{
   tournament();const headers=member('staff',['STAFF']);
-  put('registrations/r.json',{id:'r',divisionId:'d1',tournamentId:'t1',status:'REGISTERED',paymentStatus:'PAID'});
+  put('registrations/r.json',{id:'r',divisionId:'d1',tournamentId:'t1',status:'REGISTERED',paymentStatus:'PAID',checkInStatus:'CHECKED_IN'});
   const result=await call('ops','weighin',{method:'POST',headers,body:{registrationId:'r',weightKg:75,limitKg:200,passed:true}});
   assert.equal(result.body.weighIn.passed,false);assert.equal(result.body.weighIn.limitKg,70);
   assert(rows('audit/').some(x=>x.action==='WEIGH_IN'));
@@ -176,7 +179,7 @@ test('weigh-in uses stored division limit and records its audit history',async()
 });
 for(const count of [3,5,8,16])test(`${count}-athlete bracket completes through byes without awarding bye wins`,async()=>{
   tournament();const headers=member('staff',['STAFF']),divisionKey=records.get('divisions/d1.json').key;
-  for(let i=0;i<count;i++)put('registrations/r'+i+'.json',{id:'r'+i,userId:'a'+i,socId:'SOC-'+i,athleteName:'a'+i,tournamentId:'t1',divisionId:'d1',divisionKey,status:'REGISTERED',paymentStatus:'PAID',weighInStatus:'PASSED'});
+  for(let i=0;i<count;i++)put('registrations/r'+i+'.json',{id:'r'+i,userId:'a'+i,socId:'SOC-'+i,athleteName:'a'+i,tournamentId:'t1',divisionId:'d1',divisionKey,status:'REGISTERED',paymentStatus:'PAID',checkInStatus:'CHECKED_IN',weighInStatus:'PASSED'});
   const created=await call('ops','bracket',{method:'POST',headers,body:{tournamentId:'t1',divisionKey}});
   assert.equal(created.statusCode,201);
   let played=0;
@@ -204,7 +207,7 @@ test('referee match access is restricted to the assigned mat',async()=>{
 
 test('single-athlete division stops without inventing a match or medal',async()=>{
  tournament();const headers=member('staff',['STAFF']),divisionKey=records.get('divisions/d1.json').key;
- put('registrations/only.json',{id:'only',userId:'a',tournamentId:'t1',divisionKey,status:'REGISTERED',paymentStatus:'PAID',weighInStatus:'PASSED'});
+ put('registrations/only.json',{id:'only',userId:'a',tournamentId:'t1',divisionKey,status:'REGISTERED',paymentStatus:'PAID',checkInStatus:'CHECKED_IN',weighInStatus:'PASSED'});
  const r=await call('ops','bracket',{method:'POST',headers,body:{tournamentId:'t1',divisionKey}});
  assert.equal(r.body.error,'not_enough_eligible_athletes');assert.equal(rows('matches/').length,0);assert.equal(rows('medals/').length,0);
 });
@@ -213,4 +216,30 @@ test('registration cannot request elevated roles and coaches cannot read another
  assert.equal(r.statusCode,201);assert(!r.body.user.roles.includes('CEO'));assert(!r.body.user.roles.includes('ADMIN'));
  const headers=member('coach',['COACH']);put('academies/other.json',{id:'other',coachUserId:'someone-else',status:'APPROVED'});
  assert.equal((await call('member','academy-athletes',{headers,query:{academyId:'other'}})).statusCode,403);
+});
+
+test('academy application requires approval, then only its coach can manage members',async()=>{
+ const coach=member('coach',['COACH']),admin=member('admin',['ADMIN']);
+ const created=await call('public','academies',{method:'POST',headers:coach,body:{name:'격리 시험 도장',region:'TEST-REGION'}});
+ assert.equal(created.statusCode,201);const academyId=created.body.academy.id;assert.equal(created.body.academy.status,'PENDING');
+ const athlete=member('new-athlete');
+ assert.equal((await call('member','athlete',{method:'PUT',headers:athlete,body:{academyId}})).statusCode,400);
+ assert.equal((await call('admin','academy-status',{method:'POST',headers:admin,body:{academyId,status:'APPROVED'}})).statusCode,200);
+ assert.equal((await call('member','athlete',{method:'PUT',headers:athlete,body:{academyId}})).statusCode,200);
+ assert.equal((await call('member','academy-athletes',{headers:coach,query:{academyId}})).body.athletes.length,1);
+ assert.equal((await call('member','academy-athletes',{headers:member('other-coach',['COACH']),query:{academyId}})).statusCode,403);
+});
+test('storage paths cannot escape a record collection',async()=>{
+ const {getJson,putJson,deletePath}=await import('../lib/blobdb.js');
+ for(const operation of [()=>getJson('certificates/../users/private.json'),()=>putJson('users/../../system/bootstrap.json',{}),()=>deletePath('users/../sessions/secret.json')])await assert.rejects(operation,/invalid_record_path/);
+ assert.equal(reads.length,0);assert.equal(records.size,0);
+});
+
+
+test('canceled tournaments and refunded tickets cannot be checked in',async()=>{
+ tournament({status:'CANCELED'});const headers=member('staff',['STAFF']);
+ put('registrations/cancel.json',{id:'cancel',userId:'athlete',tournamentId:'t1',status:'REGISTERED',paymentStatus:'PAID'});
+ const body={payload:'SOC:cancel:'+ticketSign('cancel')};assert.equal((await call('ops','checkin',{method:'POST',headers,body})).statusCode,409);
+ tournament();put('registrations/cancel.json',{id:'cancel',userId:'athlete',tournamentId:'t1',status:'REFUNDED',paymentStatus:'REFUNDED'});
+ assert.equal((await call('ops','checkin',{method:'POST',headers,body})).statusCode,409);
 });
