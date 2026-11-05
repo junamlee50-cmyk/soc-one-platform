@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /
+# Preview environment. Open crawling after the official custom domain and launch date are confirmed.
