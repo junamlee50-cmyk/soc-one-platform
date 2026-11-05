@@ -1,0 +1,7 @@
+{
+  "name":"soc-one-platform",
+  "private":true,
+  "version":"0.2.0",
+  "type":"module",
+  "dependencies":{"@vercel/blob":"^2.0.0"}
+}
