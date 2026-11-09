@@ -1,9 +1,10 @@
-const CACHE='soc-one-public-v7';
+const CACHE='soc-one-public-v8';
 const PUBLIC_ASSETS=[
   '/','/index.html','/competition.html','/academies.html','/ranking.html','/support.html','/pro.html','/global.html','/media.html','/gear.html','/rules.html','/sponsors.html','/talent.html',
   '/assets/soc.css','/assets/soc.js','/favicon.svg','/manifest.webmanifest','/offline.html'
 ];
 const PRIVATE_PATHS=[
+  '/operations.html',
   '/payments.html','/security.html',
   '/certificate.html','/rules-config.html','/my-soc.html','/setup.html','/admin.html','/athlete-app.html','/academy-app.html','/region-app.html','/referee-app.html','/ceo-app.html','/tournament-ops.html'
 ];

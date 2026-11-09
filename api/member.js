@@ -30,6 +30,7 @@ async function handler(req,res){
     const user=await requireUser(req,res);if(!user)return;
     if(req.method==='GET'){const rows=(await listJson('registrations/',3000)).filter(x=>x.userId===user.id);return res.status(200).json({ok:true,registrations:rows});}
     if(req.method==='POST'){
+      if(!user.emailVerifiedAt)return res.status(409).json({ok:false,error:'email_verification_required',message:'MY SOC에서 이메일 인증을 완료한 뒤 참가신청해 주세요.'});
       if(!(user.roles||[]).includes('ATHLETE'))return res.status(403).json({ok:false,error:'athlete_role_required'});
       const b=req.body||{},tournamentId=clean(b.tournamentId,80),divisionId=clean(b.divisionId,80);if(!tournamentId||!divisionId)return res.status(400).json({ok:false,error:'tournament_and_division_required'});
       const trn=await getJson('tournaments/'+tournamentId+'.json');if(!trn)return res.status(404).json({ok:false,error:'tournament_not_found'});

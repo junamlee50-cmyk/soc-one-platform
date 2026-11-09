@@ -23,7 +23,7 @@ const copy=value=>structuredClone(value);
 const rows=prefix=>[...records.entries()].filter(([key])=>key.startsWith(prefix)).map(([,value])=>copy(value));
 const put=(path,value)=>records.set(path,copy(value));
 function member(id='athlete',roles=['ATHLETE','MEMBER']) {
-  const user={id,socId:'SOC-'+id,name:id,email:id+'@example.test',roles,status:'ACTIVE'};
+  const user={id,socId:'SOC-'+id,name:id,email:id+'@example.test',emailVerifiedAt:new Date().toISOString(),roles,status:'ACTIVE'};
   put('users/'+id+'.json',user);
   if(roles.includes('ATHLETE'))put('athletes/'+id+'.json',{userId:id,birthDate:'2000-01-01',belt:'WHITE',gender:'MALE',defaultWeightKg:69});
   put('sessions/'+hash(id)+'.json',{userId:id,expiresAt:new Date(Date.now()+3600000).toISOString()});

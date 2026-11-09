@@ -1,3 +1,4 @@
+import {accountEmail} from '../lib/account-email.js';
 import crypto from 'node:crypto';
 import QRCode from 'qrcode';
 import {usesPostgres} from '../lib/database.js';
@@ -9,6 +10,7 @@ import { createSession, destroySession, requireUser } from '../lib/auth.js';
 async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
 
+  if(['email-request','email-confirm','reset-request','reset-confirm'].includes(op))return accountEmail(req,res);
   if(op==='register'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
     const b=req.body||{}; const name=clean(b.name,80),email=clean(b.email,255).toLowerCase(),password=typeof b.password==='string'?b.password:'',requestedRole=clean(b.role,20).toUpperCase(),consent=b.consent===true;
@@ -36,7 +38,7 @@ async function handler(req,res){
   if(op==='me'){
     if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({ok:false,error:'method_not_allowed'});}
     const user=await requireUser(req,res,null,{allowMfaSetup:true});if(!user)return;
-    return res.status(200).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles,countryCode:user.countryCode,locale:user.locale,committeeRegion:user.committeeRegion||null,mfaEnabled:!!user.mfaEnabled}});
+    return res.status(200).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles,countryCode:user.countryCode,locale:user.locale,committeeRegion:user.committeeRegion||null,mfaEnabled:!!user.mfaEnabled,emailVerifiedAt:user.emailVerifiedAt||null}});
   }
 
   if(['mfa-status','mfa-start','mfa-confirm','change-password','logout-all'].includes(op)){
@@ -85,6 +87,7 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "email-request": ["POST"], "email-confirm": ["POST"], "reset-request": ["POST"], "reset-confirm": ["POST"],
   "mfa-status": ["GET"], "mfa-start": ["POST"], "mfa-confirm": ["POST"], "change-password": ["POST"], "logout-all": ["POST"],
   "register": [
     "POST"

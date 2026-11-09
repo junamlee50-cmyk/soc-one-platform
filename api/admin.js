@@ -1,3 +1,8 @@
+import {archiveEvent} from '../lib/event-archive.js';
+import {guardianReviews} from '../lib/guardian-review.js';
+import {releaseEvents} from '../lib/event-release.js';
+import {workflows} from '../lib/workflow.js';
+import {confirmBatchDeposit,reviewRefund} from '../lib/manual-payments.js';
 import {currentBankSettings,validBankSettings,confirmManualPayment,paymentSummary} from '../lib/manual-payments.js';
 import { assignmentConflict } from '../lib/referee-scope.js';
 import { DRAFT_RULES, validateRules } from '../lib/rules.js';
@@ -21,7 +26,7 @@ async function handler(req,res){
   }
 
   const roleMap={
-    'payment-settings':['ADMIN','CEO'],'payment-ledger':['FINANCE','STAFF','ADMIN','CEO'],'rules':['ADMIN','CEO'],'overview':['STAFF','ADMIN','CEO'],'tournaments':['STAFF','ADMIN','CEO'],'academies':['STAFF','ADMIN','CEO'],
+    'event-archive':['ADMIN','CEO'],'guardian-review':['ADMIN','CEO'],'event-release':['STAFF','ADMIN','CEO'],'batch-deposit':['FINANCE','STAFF','ADMIN','CEO'],'workflows':['STAFF','FINANCE','ADMIN','CEO'],'refund-review':['ADMIN','CEO'],'payment-settings':['ADMIN','CEO'],'payment-ledger':['FINANCE','STAFF','ADMIN','CEO'],'rules':['ADMIN','CEO'],'overview':['STAFF','ADMIN','CEO'],'tournaments':['STAFF','ADMIN','CEO'],'academies':['STAFF','ADMIN','CEO'],
     'academy-status':['STAFF','ADMIN','CEO'],'registrations':['FINANCE','STAFF','ADMIN','CEO'],'payment-status':['FINANCE','STAFF','ADMIN','CEO'],
     'users':['STAFF','ADMIN','CEO'],'role':['CEO'],'audit':['ADMIN','CEO'],'support':['STAFF','ADMIN','CEO'],
     'training':['STAFF','FINANCE','ADMIN','CEO'],'training-settlement':['FINANCE','STAFF','ADMIN','CEO'],
@@ -29,6 +34,18 @@ async function handler(req,res){
     'sponsors':['STAFF','FINANCE','ADMIN','CEO'],'content':['STAFF','ADMIN','CEO']
   };
   const user=await requireUser(req,res,roleMap[op]||['ADMIN','CEO']);if(!user)return;
+
+  if(op==='event-archive')return archiveEvent(req,res,user);
+  if(op==='guardian-review')return guardianReviews(req,res,user);
+  if(op==='event-release')return releaseEvents(req,res,user);
+  if(op==='batch-deposit'){const result=await confirmBatchDeposit(req.body||{},user);return res.status(result.status||200).json(result.error?{ok:false,error:result.error}:{ok:true,batch:result.batch});}
+  if(op==='workflows')return workflows(req,res,user);
+  if(op==='refund-review'){
+    const b=req.body||{},reg=await getJson('registrations/'+clean(b.registrationId,80)+'.json');
+    if(!reg)return res.status(404).json({ok:false,error:'registration_not_found'});
+    const result=await reviewRefund(reg,b,user);
+    return res.status(result.status||200).json(result.error?{ok:false,error:result.error}:{ok:true,registration:result.registration});
+  }
 
   if(op==='rules'){
     if(req.method==='GET')return res.status(200).json({ok:true,template:DRAFT_RULES,rules:await listJson('rules/')});
@@ -51,7 +68,7 @@ async function handler(req,res){
 
   if(op==='tournaments'){
     if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const rows=(await listJson('tournaments/',1000)).filter(x=>!x.deletedAt).sort((a,b)=>String(a.startAt||'').localeCompare(String(b.startAt||'')));return res.status(200).json({ok:true,tournaments:rows});
+    const rows=(await listJson('tournaments/',1000)).filter(x=>req.query.includeArchived==='true'||!x.deletedAt).sort((a,b)=>String(a.startAt||'').localeCompare(String(b.startAt||'')));return res.status(200).json({ok:true,tournaments:rows});
   }
 
   if(op==='academies'){
@@ -122,7 +139,7 @@ async function handler(req,res){
 
   if(op==='support'){
     if(req.method==='GET')return res.status(200).json({ok:true,applications:await listJson('support-applications/',5000)});
-    if(req.method==='POST'){const b=req.body||{},id=clean(b.applicationId,80),row=await getJson('support-applications/'+id+'.json');if(!row)return res.status(404).json({ok:false,error:'not_found'});const c={competition:Number(b.competition)||0,external:Number(b.external)||0,growth:Number(b.growth)||0,activity:Number(b.activity)||0,compliance:Number(b.compliance)||0,media:Number(b.media)||0};if(Object.values(c).some(x=>!Number.isFinite(x)||x<0)||c.competition>45||c.external>20||c.growth>10||c.activity>10||c.compliance>10||c.media>5)return res.status(400).json({ok:false,error:'score_out_of_range'});if(b.selected===true||!['DRAFT_SCORED',undefined].includes(b.status))return res.status(409).json({ok:false,error:'support_selection_policy_not_approved'});const before={...row};row.components=c;row.score=Object.values(c).reduce((s,x)=>s+x,0);row.status='DRAFT_SCORED';row.selected=false;row.reviewedBy=user.id;row.updatedAt=now();await putJson('support-applications/'+id+'.json',row);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'SUPPORT_REVIEW',entityType:'SUPPORT_APPLICATION',entityId:id,before,after:row,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,application:row});}
+    if(req.method==='POST'){const b=req.body||{},id=clean(b.applicationId,80),row=await getJson('support-applications/'+id+'.json');if(!row)return res.status(404).json({ok:false,error:'not_found'});const c={competition:Number(b.competition??0),growth:Number(b.growth??0),activity:Number(b.activity??0),compliance:Number(b.compliance??0)};if(Object.values(c).some(x=>!Number.isFinite(x)||x<0)||c.competition>70||c.growth>15||c.activity>5||c.compliance>10||Number(b.external||0)!==0||Number(b.media||0)!==0)return res.status(400).json({ok:false,error:'score_out_of_range'});if(b.selected===true||!['DRAFT_SCORED',undefined].includes(b.status))return res.status(409).json({ok:false,error:'support_selection_policy_not_approved'});const before={...row};row.scoringVersion='DRAFT-2026-11-04-70-15-5-10';row.components=c;row.score=Object.values(c).reduce((s,x)=>s+x,0);row.status='DRAFT_SCORED';row.selected=false;row.reviewedBy=user.id;row.updatedAt=now();await putJson('support-applications/'+id+'.json',row);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'SUPPORT_REVIEW',entityType:'SUPPORT_APPLICATION',entityId:id,before,after:row,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,application:row});}
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
 
@@ -182,6 +199,12 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "event-archive": ["POST"],
+  "guardian-review": ["GET","POST"],
+  "event-release": ["GET","POST"],
+  "batch-deposit": ["POST"],
+  "workflows": ["GET","POST"],
+  "refund-review": ["POST"],
   "payment-settings": ["GET","POST"],
   "payment-ledger": ["GET"],
   "rules": ["GET","POST"],

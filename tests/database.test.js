@@ -37,7 +37,7 @@ async function call(handler,op,userId,body={},method='POST'){
 }
 async function person(id,roles=['ATHLETE']){
  if(roles.includes('ATHLETE'))await seed('athletes/'+id+'.json',{userId:id,birthDate:'2000-01-01',belt:'WHITE',gender:'MALE',defaultWeightKg:69});
- await seed('users/'+id+'.json',{id,socId:'SOC-'+id,name:id,email:id+'@example.test',roles,status:'ACTIVE'});
+ await seed('users/'+id+'.json',{id,socId:'SOC-'+id,name:id,email:id+'@example.test',emailVerifiedAt:new Date().toISOString(),roles,status:'ACTIVE'});
  await seed('sessions/'+hash(id)+'.json',{userId:id,expiresAt:new Date(Date.now()+3600000).toISOString()});
 }
 async function fixture(capacity=10){
@@ -51,6 +51,12 @@ beforeEach(async()=>{await query('TRUNCATE soc_records');await query('DELETE FRO
 after(async()=>{await closePool();if(local)await local.close();});
 
 async function manualFixture(){await fixture();return (await call(member,'registrations','a',{tournamentId:'t',divisionId:'d'})).body.registration;}
+
+async function approveRefund(r){
+ await person('reviewer',['ADMIN']);
+ const reviewed=await call(admin,'refund-review','reviewer',{registrationId:r.id,revision:r.paymentRevision||0,action:'APPROVE',amount:r.amount,policyReference:'TEST-POLICY',recipientReference:'TEST-RECIPIENT',reason:'Synthetic review'});
+ assert.equal(reviewed.statusCode,200,JSON.stringify(reviewed.body));return reviewed.body.registration;
+}
 const receipt=(r,overrides={})=>({registrationId:r.id,paymentStatus:'PAID',revision:r.paymentRevision||0,amount:r.amount,occurredAt:new Date().toISOString(),reference:'BANK-TEST-'+r.id,reason:'Isolated bank reconciliation',...overrides});
 test('deposit report does not issue a ticket; staff receipt and full refund reconcile the ledger',async()=>{
  const r=await manualFixture();
@@ -67,7 +73,7 @@ test('deposit report does not issue a ticket; staff receipt and full refund reco
  const beforeRefund=(await call(admin,'overview','staff',{},'GET')).body.overview;
  assert.equal(beforeRefund.netReceived,r.amount,'refund request is not a cash outflow');
  assert.equal(beforeRefund.refunded,0);
- const refunded=await call(admin,'payment-status','staff',receipt(request.body.registration,{paymentStatus:'REFUNDED',reference:'REFUND-TEST'}));assert.equal(refunded.statusCode,200);
+ const refunded=await call(admin,'payment-status','staff',receipt(await approveRefund(request.body.registration),{paymentStatus:'REFUNDED',reference:'REFUND-TEST'}));assert.equal(refunded.statusCode,200);
  assert.equal(refunded.body.registration.status,'REFUNDED');
  const summary=(await call(admin,'payment-ledger','staff',{},'GET')).body.summary;
  assert.equal(summary.received,r.amount);assert.equal(summary.refunded,r.amount);assert.equal(summary.netReceived,0);
@@ -87,8 +93,8 @@ test('discounted additional entry cannot outlive or be paid before its base entr
  assert.equal(paidExtra.paymentStatus,'PAID');
  assert.equal((await call(member,'payment','a',{registrationId:base.id,revision:1,action:'REQUEST_REFUND',reason:'Withdrawal'})).body.error,'dependent_registrations_active');
  assert.equal((await call(admin,'payment-status','staff',receipt(paidBase,{paymentStatus:'REFUNDED',reference:'BASE-REFUND'}))).body.error,'dependent_registrations_active');
- assert.equal((await call(admin,'payment-status','staff',receipt(paidExtra,{paymentStatus:'REFUNDED',reference:'EXTRA-REFUND'}))).statusCode,200);
- assert.equal((await call(admin,'payment-status','staff',receipt(paidBase,{paymentStatus:'REFUNDED',reference:'BASE-REFUND'}))).statusCode,200);
+ assert.equal((await call(admin,'payment-status','staff',receipt(await approveRefund(paidExtra),{paymentStatus:'REFUNDED',reference:'EXTRA-REFUND'}))).statusCode,200);
+ assert.equal((await call(admin,'payment-status','staff',receipt(await approveRefund(paidBase),{paymentStatus:'REFUNDED',reference:'BASE-REFUND'}))).statusCode,200);
  assert.equal((await call(admin,'payment-ledger','staff',{},'GET')).body.summary.netReceived,0);
 });
 test('same bank evidence cannot pay two registrations concurrently or rewrite the ledger',async()=>{
@@ -265,4 +271,154 @@ test('failed logins retain the shared attempt counter despite API rollback',asyn
  const counter=(await query('SELECT bucket,attempts FROM soc_auth_attempts')).rows[0];assert.equal(counter.attempts,11);assert.equal(counter.bucket.length,64);
  await query("UPDATE soc_auth_attempts SET reset_at=now()-interval '1 second'");
  assert.equal((await call(auth,'login','',{email:'missing@example.test',password:'wrong'})).statusCode,401);
+});
+
+test('refund approval requires independent reviewer and executor and preserves cash until actual transfer',async()=>{
+ const r=await manualFixture();const paid=(await call(admin,'payment-status','staff',receipt(r))).body.registration;
+ assert.equal((await call(admin,'payment-status','staff',receipt(paid,{paymentStatus:'REFUNDED'}))).body.error,'refund_approval_required');
+ const approved=await approveRefund(paid);
+ assert.equal((await call(admin,'payment-ledger','staff',{},'GET')).body.summary.netReceived,r.amount);
+ assert.equal((await call(admin,'payment-status','reviewer',receipt(approved,{paymentStatus:'REFUNDED'}))).body.error,'independent_refund_executor_required');
+ const results=await Promise.all([1,2].map(()=>call(admin,'payment-status','staff',receipt(approved,{paymentStatus:'REFUNDED',reference:'ONE-REFUND'}))));
+ assert.deepEqual(results.map(r=>r.statusCode).sort(),[200,409]);
+});
+test('workflow requires evidence, independent approval, assigned executor and revision; audits atomically',async()=>{
+ await person('worker',['STAFF']);await person('boss',['CEO']);await person('other',['STAFF']);
+ const created=await call(admin,'workflows','worker',{action:'CREATE',processId:'P08',title:'Support review',target:'SOC-TEST',ownerId:'worker',dueAt:'2027-01-01',reason:'Test'});
+ assert.equal(created.statusCode,201);let r=created.body.task;
+ assert.equal((await call(admin,'workflows','other',{},'GET')).body.tasks.length,0);
+ assert.equal((await call(admin,'workflows','boss',{},'GET')).body.processes.length,12);
+ const change=(actor,action,extra={})=>call(admin,'workflows',actor,{id:r.id,revision:r.revision,action,reason:'Test review',...extra});
+ assert.equal((await change('worker','SUBMIT',{evidence:['','','']})).statusCode,400);
+ r=(await change('worker','SUBMIT',{evidence:['budget-1','assessment-2','contract-3']})).body.task;
+ assert.equal((await change('worker','COMPLETE',{completionReference:'bad'})).statusCode,409);
+ assert.equal((await change('worker','APPROVE')).statusCode,403);
+ const beforeAudit=(await listJson('audit/')).length;
+ if(!realPostgres){failPath='audit/';assert.equal((await change('boss','APPROVE')).statusCode,503);assert.equal((await getJson('workflows/'+r.id+'.json')).status,'IN_REVIEW');assert.equal((await listJson('audit/')).length,beforeAudit);}
+ const approvals=await Promise.all([change('boss','APPROVE'),change('boss','APPROVE')]);assert.deepEqual(approvals.map(x=>x.statusCode).sort(),[200,409]);r=approvals.find(x=>x.statusCode===200).body.task;
+ assert.equal((await change('boss','COMPLETE',{completionReference:'done'})).statusCode,403);
+ assert.equal((await change('worker','COMPLETE')).statusCode,400);
+ r=(await change('worker','COMPLETE',{completionReference:'actual-result-4'})).body.task;assert.equal(r.status,'COMPLETED');
+ r=(await change('boss','REOPEN')).body.task;assert.equal(r.status,'RETURNED');assert.equal(r.completionReference,undefined);assert.equal(r.history.length,5);
+});
+test('workflow creator cannot approve own delegated request',async()=>{
+ await person('boss',['CEO']);await person('worker',['STAFF']);await seed('tournaments/T1.json',{id:'T1',name:'Test'});
+ let r=(await call(admin,'workflows','boss',{action:'CREATE',processId:'P03',title:'Event',target:'T1',ownerId:'worker',dueAt:'2027-01-01',reason:'Test'})).body.task;
+ r=(await call(admin,'workflows','worker',{id:r.id,revision:0,action:'SUBMIT',evidence:['a','b','c'],reason:'Test'})).body.task;
+ assert.equal((await call(admin,'workflows','boss',{id:r.id,revision:r.revision,action:'APPROVE',reason:'Test'})).body.error,'independent_approver_required');
+});
+
+test('batch deposit reconciles two registrations atomically and rejects reuse and mismatch',async()=>{
+ await fixture();const a=(await call(member,'registrations','a',{tournamentId:'t',divisionId:'d'})).body.registration;
+ const b=(await call(member,'registrations','b',{tournamentId:'t',divisionId:'d'})).body.registration;
+ const body={amount:a.amount+b.amount,reference:'GROUP-1',occurredAt:new Date().toISOString(),reason:'Synthetic bank statement',allocations:[a,b].map(r=>({registrationId:r.id,revision:0,amount:r.amount}))};
+ assert.equal((await call(admin,'batch-deposit','staff',{...body,amount:1})).statusCode,400);
+ // Second allocation fails after the first write: transaction must roll all writes back.
+ b.paymentDueAt='2020-01-01';await seed('registrations/'+b.id+'.json',b);
+ assert.equal((await call(admin,'batch-deposit','staff',body)).statusCode,409);
+ assert.equal((await listJson('payment-ledger/')).length,0);assert.equal((await getJson('registrations/'+a.id+'.json')).paymentStatus,'UNPAID');
+ b.paymentDueAt=new Date(Date.now()+3600000).toISOString();await seed('registrations/'+b.id+'.json',b);
+ assert.equal((await call(admin,'batch-deposit','staff',body)).statusCode,200);
+ assert.equal((await listJson('payment-ledger/')).reduce((s,e)=>s+e.amount,0),body.amount);
+ assert.equal((await call(admin,'batch-deposit','staff',body)).statusCode,409);
+});
+test('partial cancellation refunds only approved amount and closes entry without granting ticket',async()=>{
+ let r=await manualFixture();r=(await call(admin,'payment-status','staff',receipt(r))).body.registration;
+ await person('reviewer',['ADMIN']);
+ const review={registrationId:r.id,revision:r.paymentRevision,action:'APPROVE',amount:40000,policyReference:'Cancellation policy',recipientReference:'Verified recipient',reason:'Partial cancellation'};
+ assert.equal((await call(admin,'refund-review','reviewer',{...review,amount:r.amount+1})).statusCode,400);
+ r=(await call(admin,'refund-review','reviewer',review)).body.registration;
+ assert.equal((await call(admin,'payment-status','staff',receipt(r,{paymentStatus:'REFUNDED',amount:r.amount}))).statusCode,400);
+ r=(await call(admin,'payment-status','staff',receipt(r,{paymentStatus:'REFUNDED',amount:40000,reference:'PARTIAL-1'}))).body.registration;
+ assert.equal(r.status,'REFUNDED');assert.equal(r.retainedAmount,19000);assert.equal(r.refundedAmount,40000);
+ const summary=(await call(admin,'payment-ledger','staff',{},'GET')).body.summary;assert.equal(summary.netReceived,19000);
+ assert.equal((await call(admin,'payment-status','staff',receipt(r,{paymentStatus:'REFUNDED',amount:40000}))).statusCode,409);
+});
+test('workflow reassignment invalidates approval, enforces reviewer and supports withdrawal/cancellation',async()=>{
+ for(const [id,roles]of [['worker',['STAFF']],['replacement',['STAFF']],['boss',['CEO']],['reviewer',['ADMIN']]])await person(id,roles);
+ let r=(await call(admin,'workflows','worker',{action:'CREATE',processId:'P04',title:'Deposit',target:'BANK-1',ownerId:'worker',dueAt:'2027-01-01',reason:'Test'})).body.task;
+ const act=async(user,action,extra={})=>call(admin,'workflows',user,{id:r.id,revision:r.revision,action,reason:'Test change',...extra});
+ r=(await act('boss','UPDATE',{ownerId:'replacement',reviewerId:'reviewer',dueAt:'2027-02-01'})).body.task;
+ assert.equal((await act('worker','SUBMIT',{evidence:['a','b','c']})).statusCode,403);
+ r=(await act('replacement','SUBMIT',{evidence:['a','b','c']})).body.task;
+ assert.equal((await act('boss','APPROVE')).statusCode,403);
+ r=(await act('replacement','WITHDRAW')).body.task;assert.equal(r.status,'DRAFT');
+ r=(await act('replacement','SUBMIT',{evidence:['a','b','c']})).body.task;
+ r=(await act('reviewer','APPROVE')).body.task;assert.equal(r.status,'APPROVED');
+ r=(await act('boss','UPDATE',{ownerId:'replacement',reviewerId:'reviewer',dueAt:'2027-03-01'})).body.task;assert.equal(r.status,'RETURNED');assert.equal(r.reviewedBy,undefined);
+ r=(await act('boss','CANCEL')).body.task;assert.equal(r.status,'CANCELED');assert.equal((await act('replacement','SUBMIT',{evidence:['a','b','c']})).statusCode,409);
+});
+test('event opening requires independent approval of current settings and valid prerequisites',async()=>{
+ await fixture();await person('boss',['CEO']);process.env.RESEND_API_KEY='isolated-config';process.env.SOC_EMAIL_FROM='test@example.test';
+ let t=await getJson('tournaments/t.json');t.status='DRAFT';t.venueName='Test venue';t.registrationOpenAt=new Date(Date.now()-1000).toISOString();t.registrationCloseAt=new Date(Date.now()+86400000).toISOString();await seed('tournaments/t.json',t);
+ assert.equal((await call(admin,'event-release','boss',{tournamentId:'t',reason:'Open'})).statusCode,409);
+ let r=(await call(admin,'workflows','staff',{action:'CREATE',processId:'P03',title:'Event approval',target:'t',ownerId:'staff',dueAt:'2027-01-01',reason:'Test'})).body.task;
+ r=(await call(admin,'workflows','staff',{id:r.id,revision:r.revision,action:'SUBMIT',evidence:['budget','policy','medical'],reason:'Review'})).body.task;
+ t.fees.regular=60000;await seed('tournaments/t.json',t);
+ assert.equal((await call(admin,'workflows','boss',{id:r.id,revision:r.revision,action:'APPROVE',reason:'Review'})).body.error,'workflow_target_changed');
+ t.fees.regular=59000;await seed('tournaments/t.json',t);
+ assert.equal((await call(admin,'workflows','boss',{id:r.id,revision:r.revision,action:'APPROVE',reason:'Review'})).statusCode,200);
+ assert.equal((await call(admin,'event-release','boss',{tournamentId:'t',reason:'Open approved event'})).statusCode,200);
+ assert.equal((await getJson('tournaments/t.json')).status,'REGISTRATION_OPEN');delete process.env.RESEND_API_KEY;delete process.env.SOC_EMAIL_FROM;
+});
+test('guardian review requires independent evidence, handles revocation and prevents stale updates',async()=>{
+ await fixture();await person('reviewer',['ADMIN']);
+ const body={athleteUserId:'a',revision:0,action:'VERIFY',relationshipReference:'REL-1',consentReference:'SIGNED-1',policyVersion:'TEST-CONSENT',verifiedInPerson:true,reason:'Original reviewed'};
+ assert.equal((await call(admin,'guardian-review','staff',body)).statusCode,403);
+ assert.equal((await call(admin,'guardian-review','reviewer',{...body,verifiedInPerson:false})).statusCode,400);
+ assert.equal((await call(admin,'guardian-review','reviewer',body)).body.consent.status,'VERIFIED');
+ assert.equal((await call(admin,'guardian-review','reviewer',body)).statusCode,409);
+ assert.equal((await call(admin,'guardian-review','reviewer',{...body,revision:1,action:'REVOKE'})).body.consent.status,'REVOKED');
+ assert.equal((await listJson('audit/')).filter(x=>x.action.startsWith('GUARDIAN_')).length,2);
+});
+test('financial staff cannot confirm their own participant payment',async()=>{
+ let r=await manualFixture();const u=await getJson('users/a.json');u.roles.push('STAFF');await seed('users/a.json',u);
+ assert.equal((await call(admin,'payment-status','a',receipt(r))).body.error,'independent_payment_operator_required');
+ assert.equal((await listJson('payment-ledger/')).length,0);
+});
+test('email verification and password recovery use expiring one-time codes and revoke sessions',async()=>{
+ await person('a');await seed('user-email/'+hash('a@example.test')+'.json',{userId:'a'});
+ process.env.RESEND_API_KEY='isolated-mail-provider';process.env.SOC_EMAIL_FROM='test@example.test';
+ const unverified=await getJson('users/a.json');delete unverified.emailVerifiedAt;await seed('users/a.json',unverified);
+ let code;const transport=mock.method(globalThis,'fetch',async(_url,options)=>{code=JSON.parse(options.body).text.match(/코드: (\d{8})/)[1];return {ok:true};});
+ try{
+  assert.equal((await call(auth,'email-request','a')).statusCode,200);const verification=code;
+  assert.equal((await call(auth,'email-confirm','a',{code:'wrong'})).statusCode,400);
+  assert.equal((await call(auth,'email-confirm','a',{code:verification})).statusCode,200);
+  assert.ok((await getJson('users/a.json')).emailVerifiedAt);
+  assert.equal((await call(auth,'email-confirm','a',{code:verification})).statusCode,400);
+  assert.equal((await call(auth,'reset-request','none',{email:'missing@example.test'})).statusCode,200);
+  assert.equal((await call(auth,'reset-request','none',{email:'a@example.test'})).statusCode,200);
+  assert.equal((await call(auth,'reset-confirm','none',{email:'a@example.test',code,newPassword:'new-isolated-password'})).statusCode,200);
+  assert.equal((await call(auth,'me','a',{},'GET')).body.error,'session_revoked');
+  assert.equal((await call(auth,'reset-confirm','none',{email:'a@example.test',code,newPassword:'another-password'})).statusCode,400);
+  assert.equal((await call(auth,'login','none',{email:'a@example.test',password:'new-isolated-password'})).statusCode,200);
+ }finally{transport.mock.restore();delete process.env.RESEND_API_KEY;delete process.env.SOC_EMAIL_FROM;}
+});
+test('email delivery failure rolls back challenges and reset code guesses remain rate limited',async()=>{
+ await person('a');await seed('user-email/'+hash('a@example.test')+'.json',{userId:'a'});
+ process.env.RESEND_API_KEY='isolated-mail-provider';process.env.SOC_EMAIL_FROM='test@example.test';
+ const transport=mock.method(globalThis,'fetch',async()=>({ok:false}));
+ try{
+  assert.equal((await call(auth,'reset-request','none',{email:'a@example.test'})).statusCode,503);
+  assert.equal((await listJson('email-challenges/')).length,0);
+  for(let i=0;i<5;i++)assert.equal((await call(auth,'reset-confirm','none',{email:'a@example.test',code:'00000000',newPassword:'new-password-long'})).statusCode,400);
+  assert.equal((await call(auth,'reset-confirm','none',{email:'a@example.test',code:'00000000',newPassword:'new-password-long'})).statusCode,429);
+ }finally{transport.mock.restore();delete process.env.RESEND_API_KEY;delete process.env.SOC_EMAIL_FROM;}
+});
+test('unverified email cannot register for a tournament',async()=>{
+ await fixture();const user=await getJson('users/a.json');delete user.emailVerifiedAt;await seed('users/a.json',user);
+ assert.equal((await call(member,'registrations','a',{tournamentId:'t',divisionId:'d'})).body.error,'email_verification_required');
+ assert.equal((await listJson('registrations/')).length,0);
+});
+test('event archive preserves history, blocks registrations and restores only to draft',async()=>{
+ await fixture();await person('boss',['CEO']);let t=await getJson('tournaments/t.json');t.status='DRAFT';t.updatedAt='2026-11-09T00:00:00Z';await seed('tournaments/t.json',t);
+ const body={tournamentId:'t',updatedAt:t.updatedAt,action:'ARCHIVE',reason:'Duplicate draft'};
+ assert.equal((await call(admin,'event-archive','staff',body)).statusCode,403);
+ assert.equal((await call(admin,'event-archive','boss',{...body,updatedAt:'stale'})).statusCode,409);
+ let result=await call(admin,'event-archive','boss',body);assert.equal(result.statusCode,200);assert.ok(result.body.tournament.deletedAt);
+ result=await call(admin,'event-archive','boss',{...body,updatedAt:result.body.tournament.updatedAt,action:'RESTORE'});assert.equal(result.statusCode,200);assert.equal(result.body.tournament.status,'DRAFT');
+ await seed('registrations/history.json',{id:'history',userId:'a',tournamentId:'t',divisionId:'d',status:'CANCELED',amount:59000});
+ assert.equal((await call(admin,'event-archive','boss',{...body,updatedAt:result.body.tournament.updatedAt})).body.error,'event_has_records');
+ assert.equal((await listJson('audit/')).filter(e=>e.action.startsWith('EVENT_')).length,2);
 });
