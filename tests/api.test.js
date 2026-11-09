@@ -36,6 +36,20 @@ async function call(name,op,{method='GET',body={},headers={},query={}}={}){
 }
 beforeEach(()=>{records.clear();reads.length=0;readFailure=null;process.env.SOC_TICKET_SIGNING_KEY=crypto.randomBytes(32).toString('hex');delete process.env.SOC_BOOTSTRAP_TOKEN;delete process.env.SOC_ADMIN_SETUP_KEY;});
 
+test('admin applicant dashboard scopes records to events, distinguishes people and entries, and denies athletes',async()=>{
+ const headers=member('staff',['STAFF']),athlete=member('athlete');
+ for(const id of ['one','two'])put('tournaments/'+id+'.json',{id,name:id,status:'DRAFT'});
+ for(const [id,event,user,status,payment]of [['a','one','u1','REGISTERED','PAID'],['b','one','u1','REGISTERED','UNPAID'],['c','one','u2','CANCELED','UNPAID'],['d','two','u1','REGISTERED','PAID']])put('registrations/'+id+'.json',{id,tournamentId:event,userId:user,athleteName:'same name',status,paymentStatus:payment});
+ assert.equal((await call('admin','registrations',{headers:athlete})).statusCode,403);
+ assert.equal((await call('admin','registrations')).statusCode,401);
+ const scoped=await call('admin','registrations',{headers,query:{tournamentId:'one'}});
+ assert.equal(scoped.statusCode,200);assert.equal(scoped.body.registrations.length,3);
+ assert.equal(scoped.body.summary.activeParticipants,1);assert.equal(scoped.body.summary.activeEntries,2);assert.equal(scoped.body.summary.canceledEntries,1);
+ assert.equal(scoped.body.tournaments.find(t=>t.id==='two').summary.activeParticipants,1);
+ const all=await call('admin','registrations',{headers});assert.equal(all.body.summary.activeParticipants,1);assert.equal(all.body.summary.activeEntries,3);
+ assert.equal((await call('admin','registrations',{headers,query:{tournamentId:'missing'}})).body.registrations.length,0);
+});
+
 test('production cannot mutate operational records on nontransactional Blob',async()=>{
   process.env.VERCEL_ENV='production';
   try{

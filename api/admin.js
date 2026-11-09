@@ -1,3 +1,4 @@
+import {registrationSummary} from '../lib/registration-summary.js';
 import {archiveEvent} from '../lib/event-archive.js';
 import {guardianReviews} from '../lib/guardian-review.js';
 import {releaseEvents} from '../lib/event-release.js';
@@ -83,7 +84,13 @@ async function handler(req,res){
 
   if(op==='registrations'){
     if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const rows=(await listJson('registrations/',10000)).sort((a,b)=>String(b.registeredAt||'').localeCompare(String(a.registeredAt||'')));return res.status(200).json({ok:true,registrations:rows});
+    const [records,events]=await Promise.all([listJson('registrations/',10000),listJson('tournaments/',1000)]);
+    const tournamentId=clean(req.query.tournamentId,80);
+    const rows=records.filter(r=>!tournamentId||r.tournamentId===tournamentId).sort((a,b)=>String(b.registeredAt||'').localeCompare(String(a.registeredAt||'')));
+    const grouped=new Map();for(const r of records){if(!grouped.has(r.tournamentId))grouped.set(r.tournamentId,[]);grouped.get(r.tournamentId).push(r);}
+    const tournaments=events.map(t=>({id:t.id,name:t.name,startAt:t.startAt,status:t.status,archived:!!t.deletedAt,summary:registrationSummary(grouped.get(t.id)||[])}));
+    for(const [id,entries]of grouped)if(!events.some(t=>t.id===id))tournaments.push({id,name:'대회 정보 확인 필요',summary:registrationSummary(entries)});
+    return res.status(200).json({ok:true,registrations:rows,summary:registrationSummary(rows),tournaments});
   }
 
   if(op==='payment-settings'){
