@@ -1,3 +1,4 @@
+const releaseEventList=document.getElementById('releaseEvents');
 let workUser,workData={tasks:[],processes:[],assignees:[]},workSelected=null,processSelected='',workLoading=0,workBusy=false;
 const labels={CANCELED:'취소',DRAFT:'작성 중',RETURNED:'보완 요청',IN_REVIEW:'승인 대기',APPROVED:'승인 · 실행 대기',COMPLETED:'실행 확인 완료'};
 const actions={UPDATE:'담당·기한 변경',WITHDRAW:'승인 요청 철회',CANCEL:'취소',CREATE:'등록',SAVE:'작성 저장',SUBMIT:'승인 요청',APPROVE:'승인',RETURN:'보완 요청',COMPLETE:'실행 확인',REOPEN:'재검토'};
@@ -49,11 +50,11 @@ workReload.onclick=loadWork;statusFilter.onchange=renderWork;workSearch.oninput=
 (async()=>{workUser=await SOC.requireRoles(['STAFF','FINANCE','ADMIN','CEO']);if(workUser)await loadWork();})();
 
 async function loadRelease(){
- if(!workUser.roles.some(r=>['STAFF','ADMIN','CEO'].includes(r))){releaseEvents.textContent='관리자·대회 운영 담당자가 확인합니다.';return;}
- const d=await SOC.get('/api/admin?op=event-release');releaseEvents.replaceChildren();if(!d.ok){releaseEvents.textContent='점검 내역을 불러오지 못했습니다.';return;}
+ if(!workUser.roles.some(r=>['STAFF','ADMIN','CEO'].includes(r))){releaseEventList.textContent='관리자·대회 운영 담당자가 확인합니다.';return;}
+ const d=await SOC.get('/api/admin?op=event-release');releaseEventList.replaceChildren();if(!d.ok){releaseEventList.textContent='점검 내역을 불러오지 못했습니다.';return;}
  for(const e of d.events){const box=el('div',undefined,'panel');box.append(el('h3',e.name),el('p','대회 ID: '+e.tournamentId),el('p',e.ready?'설정·독립 검토 승인 확인 완료':e.blockers.join(' / ')));
   if(e.ready&&['DRAFT','COMING_SOON','CLOSED'].includes(e.status)&&workData.canApprove){const reason=el('input');reason.placeholder='접수 개시 사유';reason.setAttribute('aria-label','접수 개시 사유');const b=el('button','대회 접수 개시','btn gold');b.onclick=async()=>{b.disabled=true;try{const result=await SOC.post('/api/admin?op=event-release',{tournamentId:e.tournamentId,reason:reason.value});workStatus.textContent=result.ok?'접수를 개시했습니다.':(result.blockers||[result.error]).join(' / ');await loadRelease();}finally{b.disabled=false;}};box.append(reason,b);}
-  releaseEvents.append(box);
+  releaseEventList.append(box);
  }
 }
 
