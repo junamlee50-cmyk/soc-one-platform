@@ -31,7 +31,7 @@ const server=https.createServer({key:await readFile(process.env.SOC_TEST_TLS_KEY
  }
  if(route==='/')route='/index.html';if(!path.extname(route))route+='.html';
  const root=path.resolve('.'),file=path.resolve('.'+route);if(!file.startsWith(root+path.sep)){res.writeHead(404).end();return}
- const type={'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml','.webmanifest':'application/manifest+json','.png':'image/png'}[path.extname(file)]||'application/octet-stream';
+ const type={'.html':'text/html','.json':'application/json','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml','.webmanifest':'application/manifest+json','.png':'image/png'}[path.extname(file)]||'application/octet-stream';
  res.setHeader('Content-Type',type);res.end(await readFile(file));
  }catch{res.writeHead(500).end('isolated test server error')}
 });
