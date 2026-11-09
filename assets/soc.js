@@ -6,7 +6,7 @@ async get(url){return this.request(url)},
 async post(url,data){return this.request(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})},
 toast(msg){alert(msg)}
 };
-function toggleMenu(){const e=document.getElementById('mobileMenu');if(e)e.style.display=e.style.display==='block'?'none':'block'}
+function toggleMenu(){const e=document.getElementById('mobileMenu');if(e){const open=e.style.display!=='block';e.style.display=open?'block':'none';document.querySelector('[aria-controls="mobileMenu"]')?.setAttribute('aria-expanded',String(open));}}
 document.addEventListener('click',e=>{if(e.target.matches('.tab')){const p=e.target.parentElement;p.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));e.target.classList.add('active')}});
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(()=>{}));}
 SOC.me=async function(){try{const r=await fetch('/api/auth/me',{credentials:'include'});if(!r.ok)return null;const d=await r.json();return d.user||null}catch{return null}};
@@ -31,12 +31,13 @@ SOC.logout=async function(){const result=await SOC.post('/api/auth/logout',{});i
   const revision=++accessRevision,u=user===undefined?await SOC.me():user;if(revision!==accessRevision)return;
   let button=document.getElementById('socAdminButton');
   if(!button&&allowed(u)){const actions=document.querySelector('header .actions');if(actions){button=document.createElement('button');button.id='socAdminButton';button.type='button';button.className='btn gold';button.textContent='관리자';button.dataset.socAdmin='tournaments';button.setAttribute('aria-haspopup','dialog');actions.prepend(button);}}
-  if(button)button.hidden=!allowed(u);
+  if(button)button.hidden=button.hasAttribute('data-public-admin')?false:!allowed(u);
+  document.dispatchEvent(new CustomEvent('soc:session',{detail:{user:u}}));
   if(!allowed(u))close();
   return allowed(u);
  };
  SOC.openAdmin=async function(view='tournaments'){
-  if(!await SOC.refreshAdminAccess()){SOC.toast('관리자 권한으로 로그인한 후 이용해 주세요.');return;}
+  if(!await SOC.refreshAdminAccess()){if(SOC.openAccount)SOC.openAccount('login','admin');else SOC.toast('관리자 권한으로 로그인한 후 이용해 주세요.');return;}
   opener=document.activeElement;
   if(!dialog){
    dialog=document.createElement('dialog');dialog.id='socAdminPanel';dialog.className='socAdminPanel';dialog.setAttribute('aria-labelledby','socAdminTitle');

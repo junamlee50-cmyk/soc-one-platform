@@ -50,6 +50,15 @@ test('admin applicant dashboard scopes records to events, distinguishes people a
  assert.equal((await call('admin','registrations',{headers,query:{tournamentId:'missing'}})).body.registrations.length,0);
 });
 
+test('support preregistration records interest without selection and validates season and duplicates',async()=>{
+ const headers=member('interested');
+ assert.equal((await call('member','support',{method:'POST',headers,body:{season:'not-a-season',tier:'ELITE'}})).statusCode,400);
+ const first=await call('member','support',{method:'POST',headers,body:{season:'2027',tier:'ELITE',selected:true,score:100}});
+ assert.equal(first.statusCode,201);assert.equal(first.body.application.applicationKind,'INTEREST');assert.equal(first.body.application.selected,false);assert.equal(first.body.application.score,null);
+ assert.equal((await call('member','support',{method:'POST',headers,body:{season:'2027',tier:'ELITE'}})).statusCode,409);
+ assert.equal((await call('member','support',{headers:member('different')})).body.applications.length,0);
+});
+
 test('production cannot mutate operational records on nontransactional Blob',async()=>{
   process.env.VERCEL_ENV='production';
   try{
