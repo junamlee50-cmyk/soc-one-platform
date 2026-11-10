@@ -34,17 +34,17 @@ function renderDetail(){
  workDetail.append(controls);
  if(workData.canApprove&&!['COMPLETED','CANCELED'].includes(r.status)){
   const panel=el('fieldset'),legend=el('legend','담당자·승인자·기한 변경'),owner=el('select'),reviewer=el('select'),due=el('input'),save=el('button','변경 후 재검토','btn');
-  owner.id='editOwner';reviewer.id='editReviewer';due.id='editDue';due.type='datetime-local';due.value=new Date(Date.parse(r.dueAt)+9*3600000).toISOString().slice(0,16);
+  owner.id='editOwner';reviewer.id='editReviewer';due.id='editDue';due.type='text';due.dataset.socDate='datetime';due.required=true;due.value=SOCDate.toInput(r.dueAt);
   for(const u of workData.assignees){const o=el('option',u.name);o.value=u.id;owner.append(o);if(u.roles.some(x=>['ADMIN','CEO'].includes(x))&&u.id!==r.createdBy){const a=el('option',u.name);a.value=u.id;reviewer.append(a);}}
   owner.value=r.ownerId;reviewer.value=r.reviewerId||'';
   for(const [text,input]of [['담당자',owner],['승인자 (등록자·담당자 제외)',reviewer],['기한 (한국시간)',due]]){const label=el('label',text);label.htmlFor=input.id;panel.append(label,input);}
-  save.onclick=()=>submitWork({id:r.id,revision:r.revision,action:'UPDATE',ownerId:owner.value,reviewerId:reviewer.value,dueAt:due.value+':00+09:00',reason:reason.value});panel.prepend(legend);panel.append(save);workDetail.append(panel);
+  save.onclick=()=>{if(!SOCDate.validate([due]))return;submitWork({id:r.id,revision:r.revision,action:'UPDATE',ownerId:owner.value,reviewerId:reviewer.value,dueAt:SOCDate.iso(due.value),reason:reason.value});};panel.prepend(legend);panel.append(save);workDetail.append(panel);
  }
  workDetail.append(el('h3','처리 이력'));const history=el('ol');history.id='workHistory';for(const e of r.history){const name=workData.assignees.find(u=>u.id===e.actorId)?.name||e.actorId;history.append(el('li',date(e.at)+' · '+name+' · '+actions[e.action]+' — '+e.reason));}workDetail.append(history);
 }
 async function loadWork(){const seq=++workLoading;const d=await SOC.get('/api/admin?op=workflows');if(seq!==workLoading)return;if(!d.ok){workData.tasks=[];renderWork();workStatus.textContent=d.message||errors[d.error]||'업무를 불러올 수 없습니다. 새로고침해 주세요.';return;}workData=d;await loadRelease();await loadGuardians();workProcess.replaceChildren();for(const p of d.processes){const o=el('option',p.id+' '+p.title);o.value=p.id;workProcess.append(o);}workOwner.replaceChildren();for(const u of d.assignees.filter(u=>d.canApprove||u.id===workUser.id)){const o=el('option',u.name);o.value=u.id;workOwner.append(o);}workOwner.value=workUser.id;renderWork();}
 async function submitWork(body){if(workBusy)return;workBusy=true;workDetail.querySelectorAll('button').forEach(b=>b.disabled=true);createWork.querySelector('button').disabled=true;try{const d=await SOC.post('/api/admin?op=workflows',body);workStatus.textContent=d.ok?'업무 기록을 저장했습니다.':d.message||errors[d.error]||'저장하지 못했습니다. 입력과 현재 상태를 확인해 주세요.';if(d.ok){workSelected=d.task.id;createPanel.hidden=true;await loadWork();}}finally{workBusy=false;createWork.querySelector('button').disabled=false;workDetail.querySelectorAll('button').forEach(b=>b.disabled=false);}}
-createWork.onsubmit=e=>{e.preventDefault();submitWork({action:'CREATE',processId:workProcess.value,ownerId:workOwner.value,title:workTitle.value,target:workTarget.value,dueAt:workDue.value+':00+09:00',reason:workReason.value});};
+createWork.onsubmit=e=>{e.preventDefault();submitWork({action:'CREATE',processId:workProcess.value,ownerId:workOwner.value,title:workTitle.value,target:workTarget.value,dueAt:SOCDate.iso(workDue.value),reason:workReason.value});};
 workNew.onclick=()=>{createPanel.hidden=!createPanel.hidden;if(!createPanel.hidden){if(processSelected)workProcess.value=processSelected;workTitle.focus();}};
 workReload.onclick=loadWork;statusFilter.onchange=renderWork;workSearch.oninput=renderWork;
 (async()=>{workUser=await SOC.requireRoles(['STAFF','FINANCE','ADMIN','CEO']);if(workUser)await loadWork();})();

@@ -68,3 +68,5 @@ footer{border-top:1px solid #ffffff0e;margin-top:54px}.footerGrid{display:grid;g
 .registrationRow p{margin:7px 0;font-size:13px;color:var(--muted)}
 .registrationAction{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:10px;flex-shrink:0}
 @media(max-width:650px){.socAdminHeading{padding:10px 14px}.socAdminNav{padding:10px 14px}.registrationFilters{grid-template-columns:1fr}.registrationRow{flex-direction:column}.registrationAction{align-items:flex-start}.socAdminHeading strong{font-size:17px}}
+
+.dateInputHint{display:block;margin-top:7px;color:#94a9bc;font-size:12px;line-height:1.5;overflow-wrap:anywhere}input[data-soc-date][aria-invalid="true"]{border-color:#f0a38b}

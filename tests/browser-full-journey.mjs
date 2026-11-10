@@ -1,0 +1,73 @@
+import assert from 'node:assert/strict';
+import {TEST_RULES} from './helpers/rules.js';
+
+// Drives the actual forms and API handlers against the isolated browser-test DB.
+// Only the initial CEO identity is bootstrapped by the parent test. Events,
+// rules, memberships, approvals, payments, brackets and results are created here.
+export async function fullJourney({browser,base,admin,query,errors,typeCalendar}){
+ const contexts=[],outbox=[];const originalFetch=globalThis.fetch;
+ const previous={RESEND_API_KEY:process.env.RESEND_API_KEY,SOC_EMAIL_FROM:process.env.SOC_EMAIL_FROM};
+ process.env.RESEND_API_KEY='isolated-browser-outbox';process.env.SOC_EMAIL_FROM='test@example.test';
+ globalThis.fetch=async(url,options)=>{if(String(url)==='https://api.resend.com/emails'){outbox.push(JSON.parse(options.body));return new Response('{"id":"synthetic-email"}',{status:200,headers:{'Content-Type':'application/json'}});}return originalFetch(url,options);};
+ const read=async(collection,key,value)=>(await query('SELECT value FROM soc_records WHERE collection=$1 AND value->>$2=$3',[collection,key,value])).rows.map(r=>r.value);
+ const password='Synthetic-journey-2026!';
+ async function signup(name,email,role='ATHLETE'){
+  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:390,height:844}});contexts.push(context);const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));
+  await p.goto(base+'/my-soc.html');await p.locator('#regName').fill(name);await p.locator('#regEmail').fill(email);await p.locator('#regPassword').fill(password);await p.locator('#regRole').selectOption(role);await p.locator('#regConsent').check();await p.locator('#regTerms').check();await p.getByRole('button',{name:'가입하고 SOC ID 발급',exact:true}).click();await p.locator('#memberArea').waitFor({state:'visible'});
+  return {p,user:(await read('users','email',email))[0],email};
+ }
+ async function verifyEmail(person){
+  const p=person.p;await p.goto(base+'/my-soc.html');await p.locator('summary').click();await p.locator('#emailAction').selectOption('email-request');await p.getByRole('button',{name:'선택한 처리 실행',exact:true}).click();await p.getByText('해당 계정이 있으면 인증 코드를 발송했습니다. 수신함과 스팸함을 확인해 주세요.',{exact:true}).waitFor();
+  const mail=outbox.findLast(m=>m.to[0]===person.email);assert(mail,'isolated mail captured');const code=mail.text.match(/코드: (\d{8})/)[1];await p.locator('#emailAction').selectOption('email-confirm');await p.locator('#emailCode').fill(code);await p.getByRole('button',{name:'선택한 처리 실행',exact:true}).click();await p.locator('#accountEmailMsg').getByText('처리 완료',{exact:true}).waitFor();assert((await read('users','id',person.user.id))[0].emailVerifiedAt);
+ }
+ async function profile(person,dojang=''){
+  const p=person.p;await p.goto(base+'/athlete-app.html');await p.locator('#pBirth').fill('20000101');await p.locator('#pGender').selectOption('MALE');await p.locator('#pWeight').fill('69');if(dojang)await p.locator('#pAcademy').fill(dojang);await p.locator('#pPublic').check();await p.getByRole('button',{name:'프로필 저장 후 내 SOC로',exact:true}).click();await p.waitForURL('**/my-soc.html?profileSaved=1#myHistorySection');await p.locator('#profileSavedNotice').waitFor({state:'visible'});await p.locator('#myHistory').getByText('2000-01-01',{exact:true}).waitFor();
+ }
+ try{
+  const coach=await signup('통합시험 관장','journey-coach@example.test','COACH');
+  await coach.p.getByRole('link',{name:'관장 APP',exact:true}).click();await coach.p.locator('#aName').fill('통합시험 도장');await coach.p.locator('#aRegion').fill('부산');await coach.p.locator('#aAddress').fill('시험 전용 주소');await coach.p.getByRole('button',{name:'가입신청',exact:true}).click();await coach.p.getByText('신청 완료 · 운영진 승인 대기',{exact:true}).waitFor();await profile(coach);
+  await admin.goto(base+'/admin.html?tab=academies');const dojangRow=admin.locator('#academyList .dataRow').filter({hasText:'통합시험 도장'});await dojangRow.getByRole('button',{name:'승인',exact:true}).click();await dojangRow.getByText(/APPROVED/).waitFor();
+  const academy=(await read('academies','name','통합시험 도장'))[0];assert.equal(academy.status,'APPROVED');
+  const a=await signup('통합시험 선수 A','journey-a@example.test'),b=await signup('통합시험 선수 B','journey-b@example.test'),reviewer=await signup('통합시험 검토자','journey-review@example.test');
+  for(const person of [a,b]){await profile(person,'통합시험 도장 · 부산');await verifyEmail(person);}
+  // Grant the second reviewer through the actual CEO user-management screen.
+  await admin.goto(base+'/admin.html?tab=users');const reviewRow=admin.locator('[data-user-id="'+reviewer.user.id+'"]');await reviewRow.getByRole('combobox',{name:'회원 구분 선택',exact:true}).selectOption('ADMIN');await reviewRow.getByRole('textbox',{name:'권한 변경 사유',exact:true}).fill('격리 시험 독립 검토자 지정');await reviewRow.getByRole('button',{name:'권한 추가',exact:true}).click();await reviewRow.getByText('변경했습니다. 해당 회원은 다시 로그인해야 합니다.',{exact:true}).waitFor();
+  await reviewer.p.getByRole('button',{name:'로그아웃',exact:true}).click();await reviewer.p.locator('#loginEmail').fill(reviewer.email);await reviewer.p.locator('#loginPassword').fill(password);await reviewer.p.getByRole('button',{name:'로그인',exact:true}).click();await reviewer.p.locator('#memberArea').waitFor({state:'visible'});
+  // Approve an explicit synthetic rule version through its form.
+  await admin.goto(base+'/rules-config.html');await admin.locator('#version').fill('FULL-JOURNEY-TEST');
+  for(const [key,value]of Object.entries({participation:TEST_RULES.participation,win:TEST_RULES.win,...TEST_RULES.medals,...TEST_RULES.bracketFactors}))await admin.locator('#rule-'+key).fill(String(value));
+  await admin.locator('#reason').fill('격리 자동시험 전용 규정');await admin.locator('#ack').check();await admin.getByRole('button',{name:'규정 승인',exact:true}).click();await admin.getByText('승인 버전을 저장했습니다. 대회 설정에서 선택해 주세요.',{exact:true}).waitFor();
+  const rules=(await read('rules','version','FULL-JOURNEY-TEST'))[0];assert.equal(rules.status,'APPROVED');
+  await admin.goto(base+'/admin.html');await admin.locator('#tName').fill('통합시험 대회');await admin.locator('#tVenue').fill('시험 전용 경기장');await admin.locator('#tRules').selectOption(rules.id);await typeCalendar(admin,'tStart','202703151000');await typeCalendar(admin,'tOpen','202611010000');await typeCalendar(admin,'tClose','202703142359');await admin.getByRole('button',{name:'대회 저장',exact:true}).click();await admin.locator('#tMsg').getByText('저장 완료',{exact:true}).waitFor();
+  const event=(await read('tournaments','name','통합시험 대회'))[0];await admin.locator('#dTournament').selectOption(event.id);await admin.locator('#dWeight').fill('-70kg');await admin.locator('#dLimit').fill('70');await admin.locator('#dAge').selectOption('ADULT');await admin.locator('#dAgeMin').fill('18');await admin.locator('#dAgeMax').fill('39');await typeCalendar(admin,'dAgeDate','20270315');await admin.getByRole('button',{name:'디비전 생성',exact:true}).click();await admin.getByText('생성 완료',{exact:true}).waitFor();
+  // Submit the current tournament settings; another signed-in admin approves.
+  await admin.goto(base+'/operations.html');await admin.getByRole('button',{name:'새 업무 등록',exact:true}).click();await admin.locator('#workProcess').selectOption('P03');await admin.locator('#workTitle').fill('통합시험 대회 개최 검토');await admin.locator('#workTarget').fill(event.id);await typeCalendar(admin,'workDue','202703010900');await admin.locator('#workReason').fill('격리 시험 개최 검토');await admin.getByRole('button',{name:'업무 등록',exact:true}).click();await admin.locator('#evidence-0').waitFor();
+  const evidences=admin.locator('#workDetail textarea[id^="evidence-"]');for(let i=0;i<await evidences.count();i++)await evidences.nth(i).fill('SYNTHETIC-EVIDENCE-'+i);await admin.locator('#actionReason').fill('검토 요청');await admin.getByRole('button',{name:'승인 요청',exact:true}).click();await admin.getByText('등록자·담당자와 다른 관리자 또는 대표가 검토합니다.',{exact:true}).waitFor();assert.equal(await admin.getByRole('button',{name:'검토 승인',exact:true}).count(),0);
+  await reviewer.p.goto(base+'/operations.html');await reviewer.p.locator('#workList button').filter({hasText:'통합시험 대회 개최 검토'}).click();await reviewer.p.locator('#actionReason').fill('독립 검토 완료');await reviewer.p.getByRole('button',{name:'검토 승인',exact:true}).click();await reviewer.p.locator('#workDetail').getByText(/승인 · 실행 대기/).waitFor();
+  await admin.getByRole('button',{name:'새로고침',exact:true}).click();const release=admin.locator('#releaseEvents > .panel').filter({hasText:'통합시험 대회'});await release.getByRole('textbox',{name:'접수 개시 사유',exact:true}).fill('승인된 시험 대회 접수 개시');await release.getByRole('button',{name:'대회 접수 개시',exact:true}).click();await admin.getByText('접수를 개시했습니다.',{exact:true}).waitFor();assert.equal((await read('tournaments','id',event.id))[0].status,'REGISTRATION_OPEN');
+  // Actual athlete forms create the two entries and deposit claims.
+  const nowDigits=new Date(Date.now()+9*3600000).toISOString().slice(0,16).replace(/\D/g,'');
+  for(const person of [a,b]){
+   await person.p.goto(base+'/competition.html');await person.p.locator('#regTournament').selectOption(event.id);await person.p.locator('#regDivision option').first().waitFor({state:'attached'});await person.p.getByRole('button',{name:'참가신청',exact:true}).click();await person.p.waitForURL('**/payments.html?registrationId=*');person.registrationId=new URL(person.p.url()).searchParams.get('registrationId');await person.p.locator('#claimName').fill(person.user.name);await typeCalendar(person.p,'claimAt',nowDigits);await person.p.getByRole('button',{name:'입금했습니다 — 확인 요청',exact:true}).click();await person.p.locator('#paymentDetails').getByText(/운영자 확인 중/).waitFor();
+  }
+  await admin.goto(base+'/payments.html');for(const person of [a,b]){await admin.locator('#paymentRegistration').selectOption(person.registrationId);await typeCalendar(admin,'receiptAt',nowDigits);await admin.locator('#receiptReference').fill('JOURNEY-RECEIPT-'+person.user.id);await admin.locator('#receiptReason').fill('격리 시험 입금 대조');await admin.getByRole('button',{name:'대조한 거래 기록 저장',exact:true}).click();await admin.locator('#paymentDetails').getByText(/입금 확인 완료/).waitFor();await admin.waitForFunction(()=>!document.querySelector('#receiptForm button[type="submit"]').disabled);}
+  await coach.p.goto(base+'/academy-app.html');await coach.p.locator('#academySelect').selectOption(academy.id);await coach.p.locator('#athleteList').getByText(/통합시험 선수 A/).waitFor();await coach.p.locator('#athleteList').getByText(/통합시험 선수 B/).waitFor();
+  // Use the actual issued participant QR payload, check in, weigh, and generate a bracket.
+  await admin.goto(base+'/tournament-ops.html');await admin.locator('#opTournament').selectOption(event.id);
+  for(const person of [a,b]){
+   await person.p.goto(base+'/athlete-app.html');await person.p.locator('#ticketReg').selectOption(person.registrationId);await person.p.getByRole('button',{name:'QR 표시',exact:true}).click();await person.p.waitForFunction(()=>ticketText.textContent.length>20);const payload=await person.p.locator('#ticketText').innerText();await admin.locator('#qrPayload').fill(payload);await admin.getByRole('button',{name:'체크인 처리',exact:true}).click();await admin.locator('#checkMsg').getByText('체크인 완료: '+person.user.name,{exact:true}).waitFor();await admin.locator('#weighReg').selectOption(person.registrationId);await admin.locator('#weighKg').fill('69');await admin.getByRole('button',{name:'계체 저장',exact:true}).click();await admin.getByText('계체 통과',{exact:true}).waitFor();
+  }
+  await admin.getByRole('button',{name:'대진 생성',exact:true}).click();await admin.getByText('대진 생성 완료 · 1경기',{exact:true}).waitFor();
+  // Schedule with continuous digits; exercise cancel/re-call and result correction.
+  const prompts=['1','202703151000','10','격리 시험 매트 배정'];const onSchedule=dialog=>dialog.accept(prompts.shift());admin.on('dialog',onSchedule);await admin.getByRole('button',{name:'매트·시간 배정',exact:true}).click();await admin.getByText('매트·시간 배정 완료',{exact:true}).waitFor();admin.off('dialog',onSchedule);
+  admin.once('dialog',d=>d.accept('격리 시험 대진 공개'));await admin.getByRole('button',{name:'대진 공개',exact:true}).click();await admin.getByRole('button',{name:'공개 중단',exact:true}).waitFor();
+  await admin.getByRole('button',{name:'선수 호출',exact:true}).click();await admin.getByRole('button',{name:'경기 시작',exact:true}).click();await admin.waitForFunction(()=>opsMatches.textContent.includes('경기 중'));await admin.locator('#winnerSelect').selectOption(a.user.id);await admin.getByRole('button',{name:'결과 저장',exact:true}).click();await admin.getByText('결과 저장 완료',{exact:true}).waitFor();
+  const match=(await read('matches','tournamentId',event.id))[0];await admin.locator('#matchVideo_'+match.id).fill('https://youtu.be/abcdefghijk');await admin.locator('#videoReason_'+match.id).fill('시험 영상 링크');await admin.getByRole('button',{name:'영상 저장',exact:true}).click();await admin.getByText('경기 영상을 저장했습니다.',{exact:true}).waitFor();
+  await a.p.goto(base+'/my-soc.html');const history=a.p.locator('#myHistory article').filter({hasText:'통합시험 대회'});await history.getByText(/우승 · 금메달/).waitFor();await history.getByRole('link',{name:'유튜브 경기 영상 보기',exact:true}).waitFor();const videoLink=a.p.locator('#myVideos').getByRole('link',{name:'유튜브에서 보기',exact:true});assert.equal(await videoLink.getAttribute('href'),'https://www.youtube.com/watch?v=abcdefghijk');assert.equal(await videoLink.getAttribute('target'),'_blank');assert(await a.p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  const correction=d=>d.type()==='confirm'?d.accept():d.accept('격리 시험 승자 정정');admin.on('dialog',correction);await admin.getByRole('button',{name:'결과 정정',exact:true}).click();await admin.getByText('정정 준비 완료: 1경기를 다시 입력해 주세요.',{exact:true}).waitFor();admin.off('dialog',correction);
+  await a.p.reload();await a.p.locator('#myHistory').getByRole('heading',{name:'통합시험 대회',exact:true}).waitFor();assert.equal(await a.p.locator('#myHistory').getByText(/우승 · 금메달/).count(),0);
+  console.log(JSON.stringify({fullJourney:true,createdThroughUI:['coach and athlete accounts','dojang approval','independent admin role','rule approval','tournament and division','independent event approval and release','two entries and deposit claims','staff receipts','issued QR check-in','weigh-in','bracket','schedule','live result','match video','MY SOC award','result correction'],emailDelivery:'isolated outbox only',productionDataUsed:false}));
+ }finally{
+  globalThis.fetch=originalFetch;for(const [key,value]of Object.entries(previous)){if(value===undefined)delete process.env[key];else process.env[key]=value;}for(const context of contexts)await context.close();
+ }
+}

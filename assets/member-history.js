@@ -9,6 +9,11 @@ SOC.loadMemberHistory=async function(target){
  if(d.managedAcademies?.length){add(profile,'h4','내가 등록한 도장');for(const a of d.managedAcademies)add(profile,'p',a.name+' · '+a.region+' · '+(status[a.status]||a.status));}
  const edit=add(profile,'a','선수정보 수정','btn gold');edit.href='/athlete-app.html';
  const stats=add(target,'div','','kpiGrid');for(const [key,label]of [['tournaments','대회 기록'],['wins','경기 승리'],['gold','우승'],['medals','입상']]){const card=add(stats,'div','','kpi');add(card,'strong',d.summary[key]);add(card,'small',label);}
+ const videos=add(target,'section','','panel');videos.id='myVideos';videos.style.marginTop='16px';add(videos,'h3','내 경기 영상');
+ const available=d.history.flatMap(event=>event.matches.filter(match=>match.videoUrl).map(match=>({event,match})));
+ if(!available.length)add(videos,'p','등록된 경기 영상이 없습니다. 경기별 유튜브 주소가 등록되면 이곳에서 바로 볼 수 있습니다.');
+ for(const {event,match}of available){const row=add(videos,'div','','dataRow');add(row,'span',event.name+' · '+match.opponent+' 선수와 경기');const link=add(row,'a','유튜브에서 보기','btn gold');link.href=match.videoUrl;link.target='_blank';link.rel='noopener noreferrer';}
+ if(location.hash==='#myVideos')videos.scrollIntoView({block:'start'});
  add(target,'h3','대회별 참가·입상 기록');
  if(!d.history.length){add(target,'p','아직 참가한 대회와 경기 기록이 없습니다. 대회 신청과 경기 결과가 등록되면 이곳에 표시됩니다.');return;}
  const medal={GOLD:'우승 · 금메달',SILVER:'준우승 · 은메달',BRONZE:'3위 · 동메달'},results={WIN:'승리',LOSS:'패배',BYE:'부전승',PENDING:'경기 예정'},pay={PAID:'입금 확인',UNPAID:'미입금',PENDING:'입금 확인 요청',REFUND_REQUESTED:'환불 검토 중',REFUNDED:'환불 완료'};

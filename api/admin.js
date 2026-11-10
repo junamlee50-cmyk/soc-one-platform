@@ -125,7 +125,7 @@ async function handler(req,res){
 
   if(op==='users'){
     if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const rows=(await listJson('users/',5000)).map(x=>({id:x.id,socId:x.socId,name:x.name,roles:x.roles,status:x.status,committeeRegion:x.committeeRegion||null,createdAt:x.createdAt}));return res.status(200).json({ok:true,users:rows});
+    const rows=(await listJson('users/',5000)).map(x=>({id:x.id,socId:x.socId,name:x.name,roles:x.roles,status:x.status,demoAccount:!!x.demoAccount,committeeRegion:x.committeeRegion||null,createdAt:x.createdAt}));return res.status(200).json({ok:true,users:rows});
   }
 
   if(op==='role'){
