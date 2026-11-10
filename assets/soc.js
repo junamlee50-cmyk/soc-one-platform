@@ -18,7 +18,7 @@ SOC.logout=async function(){const result=await SOC.post('/api/auth/logout',{});i
 (()=>{
  if(window.top!==window.self)return;
  const allowed=u=>u?.roles?.some(r=>['STAFF','ADMIN','CEO'].includes(r));
- const views=[['tournaments','대회 일정','/admin?tab=tournaments'],['registrations','신청자·인원','/admin?tab=registrations'],['payments','입금·환불','/payments'],['operations','운영센터','/operations'],['field','현장 운영','/tournament-ops']];
+ const views=[['tournaments','대회 일정','/admin?tab=tournaments'],['registrations','신청자·인원','/admin?tab=registrations'],['payments','입금·환불','/payments'],['operations','운영센터','/operations'],['field','현장 운영','/tournament-ops'],['settings','운영 설정','/service-settings'],['inquiries','문의 관리','/inquiries?view=admin']];
  let dialog,frame,opener,accessRevision=0;
  function close(){if(!dialog)return;if(dialog.open)dialog.close();frame?.remove();frame=null;document.documentElement.classList.remove('socAdminOpen');}
  function selectView(key){
@@ -56,3 +56,6 @@ SOC.logout=async function(){const result=await SOC.post('/api/auth/logout',{});i
  window.addEventListener('pagehide',close);
  window.addEventListener('pageshow',()=>SOC.refreshAdminAccess());
 })();
+
+SOC.servicePolicy=async()=>SOC.get('/api/public?op=service-settings');
+(()=>{const footer=document.querySelector('footer .legal');if(footer){const nav=document.createElement('nav');nav.className='quickActions';for(const [title,url] of [['문의하기','/inquiries.html'],['이용약관','/privacy-preview.html?document=terms'],['취소·환불 안내','/privacy-preview.html?document=refund']]){const a=document.createElement('a');a.textContent=title;a.href=url;nav.append(a);}footer.append(nav);}})();

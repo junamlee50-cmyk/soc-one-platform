@@ -1,6 +1,8 @@
 import {currentBankSettings,validBankSettings,bankSnapshot,paymentDeadline,memberPaymentChange,paymentSummary} from '../lib/manual-payments.js';
 import { assignmentActive, assignmentCoversMatch } from '../lib/referee-scope.js';
 import { registrationPrice, eligibility } from '../lib/registration.js';
+import {inquiries} from '../lib/inquiries.js';
+import {registrationPolicy} from '../lib/service-settings.js';
 import { seasonRanking, DEFAULT_SEASON } from '../lib/ranking.js';
 import { apiHandler } from '../lib/http.js';
 import crypto from 'node:crypto';
@@ -12,6 +14,10 @@ import { ticketSign, signingKey } from '../lib/tickets.js';
 
 async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
+  if(op==='inquiries'){
+    const user=await requireUser(req,res);if(!user)return;
+    return inquiries(req,res,user);
+  }
 
   if(op==='athlete'){
     const user=await requireUser(req,res,['ATHLETE']);if(!user)return;
@@ -33,6 +39,9 @@ async function handler(req,res){
       if(!user.emailVerifiedAt)return res.status(409).json({ok:false,error:'email_verification_required',message:'MY SOC에서 이메일 인증을 완료한 뒤 참가신청해 주세요.'});
       if(!(user.roles||[]).includes('ATHLETE'))return res.status(403).json({ok:false,error:'athlete_role_required'});
       const b=req.body||{},tournamentId=clean(b.tournamentId,80),divisionId=clean(b.divisionId,80);if(!tournamentId||!divisionId)return res.status(400).json({ok:false,error:'tournament_and_division_required'});
+      const service=await registrationPolicy();
+      if(process.env.VERCEL_ENV==='production'&&!service.policy)return res.status(409).json({ok:false,error:'service_policy_required',message:'운영 약관 공개 후 신청할 수 있습니다.'});
+      if(service.policy&&(b.policyId!==service.policy.id||b.refundConsent!==true))return res.status(409).json({ok:false,error:'refund_policy_consent_required',message:'현재 취소·환불 안내를 확인하고 동의해 주세요.'});
       const trn=await getJson('tournaments/'+tournamentId+'.json');if(!trn)return res.status(404).json({ok:false,error:'tournament_not_found'});
       if(trn.deletedAt||trn.status!=='REGISTRATION_OPEN')return res.status(409).json({ok:false,error:'registration_not_open'});
       const opens=trn.registrationOpenAt?Date.parse(trn.registrationOpenAt):null;
@@ -57,6 +66,7 @@ async function handler(req,res){
       const {amount,phase}=price,id=makeId('reg'),bank=await currentBankSettings();
       if(amount>0&&!validBankSettings(bank))return res.status(409).json({ok:false,error:'bank_transfer_not_configured',message:'운영진의 입금계좌 설정 후 신청할 수 있습니다.'});
       const row={id,tournamentId,divisionId,userId:user.id,socId:user.socId,athleteName:profile?.displayName||user.name,academyId:profile?.academyId||'',discipline:div.discipline,ageGroup:div.ageGroup,belt:div.belt,weightClass:div.weightClass,divisionKey:div.key,gender:div.gender,absolute:!!div.absolute,priceSnapshot:price,paymentMethod:'BANK_TRANSFER',paymentRevision:0,bankTransfer:amount>0?bankSnapshot(bank):null,paymentDueAt:amount>0?paymentDeadline(trn,bank):null,status:'REGISTERED',paymentStatus:'UNPAID',pricingPhase:phase,amount,registeredAt:now(),updatedAt:now()};
+      row.policySnapshot=service.policy?{policyId:service.policy.id,version:service.policy.policyVersion,refundText:service.policy.refundText,acceptedAt:now()}:null;
       await putJson('registrations/'+id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,registration:row});
     }
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
@@ -163,6 +173,7 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "inquiries": ["GET","POST"],
   "payment": ["GET","POST"],
   "athlete": [
     "GET",

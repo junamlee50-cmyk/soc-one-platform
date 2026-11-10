@@ -422,3 +422,70 @@ test('event archive preserves history, blocks registrations and restores only to
  assert.equal((await call(admin,'event-archive','boss',{...body,updatedAt:result.body.tournament.updatedAt})).body.error,'event_has_records');
  assert.equal((await listJson('audit/')).filter(e=>e.action.startsWith('EVENT_')).length,2);
 });
+
+const serviceDraft={operatorName:'Synthetic SOC Operator',representative:'Test owner',contactEmail:'help@example.test',contactPhone:'010-0000-0000',address:'Synthetic test address',privacyOfficer:'Test privacy officer',policyVersion:'TEST-1',effectiveDate:'2026-01-01',privacyText:'Synthetic privacy disclosure for isolated testing. '.repeat(4),termsText:'Synthetic service terms for isolated testing. '.repeat(4),refundText:'Synthetic refund policy for isolated testing. '.repeat(4)};
+const saveService=(revision,settings=serviceDraft,id='owner')=>call(admin,'service-settings',id,{action:'SAVE',revision,settings,reason:'Isolated test'});
+const publishService=(revision,id='owner')=>call(admin,'service-settings',id,{action:'PUBLISH',revision,confirmReviewed:true,reason:'Isolated test'});
+test('service policies separate drafts from publication, reject stale saves and restrict publication to CEO',async()=>{
+ await person('owner',['CEO']);await person('editor',['ADMIN']);await person('member');
+ assert.equal((await call(admin,'service-settings','member',{},'GET')).statusCode,403);
+ assert.equal((await saveService(0,serviceDraft,'editor')).statusCode,200);
+ assert.equal((await saveService(0)).statusCode,409);
+ assert.equal((await publishService(1,'editor')).statusCode,403);
+ const published=await publishService(1);assert.equal(published.statusCode,200);
+ const first=published.body.state.published;
+ await saveService(2,{...serviceDraft,operatorName:'Unpublished change',policyVersion:'TEST-2'});
+ assert.equal((await getJson('system/service-settings.json')).published.operatorName,serviceDraft.operatorName);
+ const second=await publishService(3);assert.equal(second.statusCode,200);
+ assert.notEqual(first.id,second.body.state.published.id);
+ assert.equal((await getJson('service-policies/'+first.id+'.json')).operatorName,serviceDraft.operatorName);
+ assert.equal((await listJson('audit/')).filter(r=>r.action==='SERVICE_PUBLISH').length,2);
+});
+test('published policy requires both consents and exact version; failed registration creates no account',async()=>{
+ await person('owner',['CEO']);await saveService(0);const published=await publishService(1);const policy=published.body.state.published;
+ const b={name:'Consent test',email:'consent@example.test',password:'long-test-password',consent:true};
+ assert.equal((await call(auth,'register','',{...b,termsConsent:true,policyId:'old-policy'})).body.error,'current_policy_consent_required');
+ assert.equal((await call(auth,'register','',{...b,policyId:policy.id})).body.error,'current_policy_consent_required');
+ assert.equal(await getJson('user-email/'+hash(b.email)+'.json'),null);
+ const result=await call(auth,'register','',{...b,termsConsent:true,policyId:policy.id});assert.equal(result.statusCode,201);
+ const user=await getJson('users/'+result.body.user.id+'.json');assert.equal(user.policyConsent.policyId,policy.id);assert.equal(user.policyConsent.termsConsent,true);
+});
+test('production signup fails closed before service settings and email are ready',async()=>{
+ const old=process.env.VERCEL_ENV;process.env.VERCEL_ENV='production';
+ try{const result=await call(auth,'register','',{name:'Blocked',email:'blocked-ready@example.test',password:'long-test-password',consent:true,termsConsent:true});assert.equal(result.statusCode,409);assert.equal(result.body.error,'registration_not_ready');assert.equal((await listJson('users/')).length,0);}finally{if(old===undefined)delete process.env.VERCEL_ENV;else process.env.VERCEL_ENV=old;}
+});
+test('service settings rollback policy publication when audit storage fails',async()=>{
+ if(realPostgres)return;
+ await person('owner',['CEO']);await saveService(0);failPath='audit/';
+ const result=await publishService(1);assert.equal(result.statusCode,503);
+ assert.equal((await getJson('system/service-settings.json')).published,null);assert.equal((await listJson('service-policies/')).length,0);
+});
+test('inquiries preserve ownership, restrict replies, reject stale versions and record answers',async()=>{
+ await fixture();await person('admin',['ADMIN']);
+ const made=await call(member,'inquiries','a',{category:'REFUND',subject:'Refund question',message:'Synthetic question'});assert.equal(made.statusCode,201);const q=made.body.inquiry;
+ assert.equal((await call(member,'inquiries','b',{},'GET')).body.inquiries.length,0);
+ assert.equal((await call(admin,'inquiries','b',{id:q.id,revision:1,reply:'forged',status:'CLOSED'})).statusCode,403);
+ assert.equal((await call(admin,'inquiries','admin',{id:q.id,revision:0,reply:'Answer',status:'ANSWERED'})).statusCode,409);
+ const answer=await call(admin,'inquiries','admin',{id:q.id,revision:1,reply:'Synthetic answer',status:'ANSWERED'});assert.equal(answer.statusCode,200);
+ const own=(await call(member,'inquiries','a',{},'GET')).body.inquiries;assert.equal(own[0].replies[0].message,'Synthetic answer');assert.equal(own[0].status,'ANSWERED');
+ await seed('registrations/other.json',{id:'other',userId:'b',tournamentId:'t',divisionId:'d',status:'REGISTERED',amount:100});
+ assert.equal((await call(member,'inquiries','a',{category:'REFUND',subject:'Wrong owner',message:'Synthetic question',registrationId:'other'})).statusCode,404);
+ assert.equal((await listJson('audit/')).filter(r=>r.action==='INQUIRY_REPLIED').length,1);
+});
+test('inquiry answer rolls back on audit failure and open-setting requires email and MFA',async()=>{
+ if(realPostgres)return;
+ await person('a');await person('owner',['CEO']);
+ const made=await call(member,'inquiries','a',{category:'ACCOUNT',subject:'Account issue',message:'Synthetic account issue'});failPath='audit/';
+ assert.equal((await call(admin,'inquiries','owner',{id:made.body.inquiry.id,revision:1,reply:'Answer',status:'ANSWERED'})).statusCode,503);
+ assert.equal((await getJson('inquiries/'+made.body.inquiry.id+'.json')).replies.length,0);
+ await saveService(0);await publishService(1);
+ assert.equal((await call(admin,'service-settings','owner',{action:'OPEN',revision:2,reason:'Test missing config'})).statusCode,409);
+});
+test('registration preserves the accepted refund policy after later policy changes',async()=>{
+ await fixture();await person('owner',['CEO']);await saveService(0);const published=await publishService(1),policy=published.body.state.published;
+ const request={tournamentId:'t',divisionId:'d'};
+ assert.equal((await call(member,'registrations','a',request)).body.error,'refund_policy_consent_required');
+ const created=await call(member,'registrations','a',{...request,policyId:policy.id,refundConsent:true});assert.equal(created.statusCode,201);
+ await saveService(2,{...serviceDraft,policyVersion:'TEST-2',refundText:'Changed synthetic refund policy. '.repeat(5)});await publishService(3);
+ const record=await getJson('registrations/'+created.body.registration.id+'.json');assert.equal(record.policySnapshot.policyId,policy.id);assert.equal(record.policySnapshot.refundText,policy.refundText);
+});

@@ -1,4 +1,5 @@
 import {validPoster} from '../lib/event-media.js';
+import {registrationPolicy} from '../lib/service-settings.js';
 import {eventReadiness} from '../lib/event-release.js';
 import { validateTournament, validateDivision } from '../lib/configuration.js';
 import { publicBrackets } from '../lib/public-brackets.js';
@@ -9,6 +10,11 @@ import { requireUser } from '../lib/auth.js';
 
 async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
+  if(op==='service-settings'){
+    const current=await registrationPolicy();
+    const {publishedBy,...policy}=current.policy||{};
+    return res.status(200).json({ok:true,policy:current.policy?policy:null,canRegister:current.canRegister,isPreview:current.isPreview});
+  }
 
   if(op==='health'){
     return res.status(200).json({ok:true,service:'SOC ONE',environment:process.env.VERCEL_ENV||'unknown',timestamp:new Date().toISOString(),version:'1.0.1-prelaunch',commit:process.env.VERCEL_GIT_COMMIT_SHA||null});
@@ -110,6 +116,7 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "service-settings": ["GET"],
   "brackets": ["GET"],
   "health": [
     "GET"

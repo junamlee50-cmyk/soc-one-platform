@@ -1,4 +1,6 @@
 import {registrationSummary} from '../lib/registration-summary.js';
+import {serviceSettings} from '../lib/service-settings.js';
+import {inquiries} from '../lib/inquiries.js';
 import {archiveEvent} from '../lib/event-archive.js';
 import {guardianReviews} from '../lib/guardian-review.js';
 import {releaseEvents} from '../lib/event-release.js';
@@ -27,6 +29,7 @@ async function handler(req,res){
   }
 
   const roleMap={
+    'service-settings':['ADMIN','CEO'],'inquiries':['STAFF','ADMIN','CEO'],
     'event-archive':['ADMIN','CEO'],'guardian-review':['ADMIN','CEO'],'event-release':['STAFF','ADMIN','CEO'],'batch-deposit':['FINANCE','STAFF','ADMIN','CEO'],'workflows':['STAFF','FINANCE','ADMIN','CEO'],'refund-review':['ADMIN','CEO'],'payment-settings':['ADMIN','CEO'],'payment-ledger':['FINANCE','STAFF','ADMIN','CEO'],'rules':['ADMIN','CEO'],'overview':['STAFF','ADMIN','CEO'],'tournaments':['STAFF','ADMIN','CEO'],'academies':['STAFF','ADMIN','CEO'],
     'academy-status':['STAFF','ADMIN','CEO'],'registrations':['FINANCE','STAFF','ADMIN','CEO'],'payment-status':['FINANCE','STAFF','ADMIN','CEO'],
     'users':['STAFF','ADMIN','CEO'],'role':['CEO'],'audit':['ADMIN','CEO'],'support':['STAFF','ADMIN','CEO'],
@@ -35,6 +38,8 @@ async function handler(req,res){
     'sponsors':['STAFF','FINANCE','ADMIN','CEO'],'content':['STAFF','ADMIN','CEO']
   };
   const user=await requireUser(req,res,roleMap[op]||['ADMIN','CEO']);if(!user)return;
+  if(op==='service-settings')return serviceSettings(req,res,user);
+  if(op==='inquiries')return inquiries(req,res,user,{admin:true});
 
   if(op==='event-archive')return archiveEvent(req,res,user);
   if(op==='guardian-review')return guardianReviews(req,res,user);
@@ -206,6 +211,8 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "service-settings": ["GET","POST"],
+  "inquiries": ["GET","POST"],
   "event-archive": ["POST"],
   "guardian-review": ["GET","POST"],
   "event-release": ["GET","POST"],

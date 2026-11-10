@@ -1,4 +1,5 @@
 import {accountEmail} from '../lib/account-email.js';
+import {requireRegistrationPolicy} from '../lib/service-settings.js';
 import crypto from 'node:crypto';
 import QRCode from 'qrcode';
 import {usesPostgres} from '../lib/database.js';
@@ -17,10 +18,13 @@ async function handler(req,res){
     if(!name||!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return res.status(400).json({ok:false,error:'invalid_profile'});
     if(password.length<10||password.length>256)return res.status(400).json({ok:false,error:'weak_password',message:'비밀번호는 10자 이상이어야 합니다.'});
     if(!consent)return res.status(400).json({ok:false,error:'consent_required'});
+    const policy=await requireRegistrationPolicy(b);
+    if(policy.error)return res.status(409).json({ok:false,...policy});
     const role=requestedRole==='COACH'?'COACH':'ATHLETE',emailKey=hash(email);
     if(await getJson('user-email/'+emailKey+'.json'))return res.status(409).json({ok:false,error:'email_exists'});
     const id=makeId('usr'),ph=passwordHash(password);
     const user={id,socId:makeSocId(),name,email,emailKey,roles:[role,'MEMBER'],passwordSalt:ph.salt,passwordHash:ph.hash,status:'ACTIVE',countryCode:'KR',locale:'ko-KR',consentAt:now(),createdAt:now(),updatedAt:now()};
+    user.policyConsent={policyId:policy.policyId,policyVersion:policy.policyVersion,privacyConsent:consent,termsConsent:b.termsConsent===true,acceptedAt:user.consentAt};
     await putJson('users/'+id+'.json',user,{overwrite:false});await putJson('user-email/'+emailKey+'.json',{userId:id,emailKey,createdAt:now()},{overwrite:false});await createSession(res,user);
     return res.status(201).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles}});
   }
