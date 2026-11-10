@@ -24,7 +24,7 @@ async function handler(req,res){
   if(op==='history'){const user=await requireUser(req,res);if(!user)return;return res.status(200).json({ok:true,...await memberHistory(user)});}
 
   if(op==='athlete'){
-    const user=await requireUser(req,res,['ATHLETE','COACH','ACADEMY_ADMIN']);if(!user)return;
+    const user=await requireUser(req,res);if(!user)return;
     const path='athletes/'+user.id+'.json';
     if(req.method==='GET')return res.status(200).json({ok:true,...await memberProfile(user)});
     if(req.method==='POST'||req.method==='PUT'){
@@ -50,7 +50,7 @@ async function handler(req,res){
 
   if(op==='registrations'){
     const user=await requireUser(req,res);if(!user)return;
-    if(req.method==='GET'){const rows=(await listJson('registrations/',3000)).filter(x=>x.userId===user.id);return res.status(200).json({ok:true,registrations:rows});}
+    if(req.method==='GET'){const rows=await listJson('registrations/',3000,{userId:user.id});return res.status(200).json({ok:true,registrations:rows});}
     if(req.method==='POST'){
       if(!user.emailVerifiedAt)return res.status(409).json({ok:false,error:'email_verification_required',message:'MY SOC에서 이메일 인증을 완료한 뒤 참가신청해 주세요.'});
       if(!(user.roles||[]).includes('ATHLETE'))return res.status(403).json({ok:false,error:'athlete_role_required'});
@@ -102,7 +102,7 @@ async function handler(req,res){
   if(op==='dashboard'){
     const user=await requireUser(req,res);if(!user)return;const role=String(req.query.role||'athlete').toLowerCase(),roles=user.roles||[];
     const allowed={athlete:['ATHLETE','COACH','ACADEMY_ADMIN'],academy:['COACH','ACADEMY_ADMIN'],region:['COMMITTEE'],referee:['REFEREE'],ceo:['CEO']};
-    if(allowed[role]&&!allowed[role].some(r=>roles.includes(r)))return res.status(403).json({ok:false,error:'forbidden'});
+    if(role!=='athlete'&&allowed[role]&&!allowed[role].some(r=>roles.includes(r)))return res.status(403).json({ok:false,error:'forbidden'});
     if(role==='athlete'){
       const season=String(req.query.season||DEFAULT_SEASON);
       if(!/^\d{4}$/.test(season))return res.status(400).json({ok:false,error:'invalid_season'});

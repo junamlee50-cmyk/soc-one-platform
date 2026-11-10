@@ -11,6 +11,7 @@ function appendFeeSchedule(parent,t){
 let registrationQuote=null,quoteRequest=0;
 async function refreshRegistrationQuote(){
  const request=++quoteRequest;registrationQuote=null;regSubmit.disabled=true;
+ if(!registrationReady){regPrice.textContent='선수정보와 이메일 인증을 확인해 주세요.';return;}
  const tournamentId=regTournament.value,divisionId=regDivision.value,discountCode=regDiscountCode.value.trim().toUpperCase();
  if(!tournamentId||!divisionId){regPrice.textContent='대회와 참가 부문을 선택해 주세요.';return;}
  regPrice.textContent='신청금액을 확인하고 있습니다.';

@@ -577,3 +577,17 @@ test('only staff can save validated YouTube match links with revision and audit'
  assert.equal((await listJson('audit/')).filter(a=>a.action==='MATCH_VIDEO_UPDATED').length,1);
  const removed=await call(ops,'match-video','staff',{...body,revision:1,videoUrl:''});assert.equal(removed.body.match.videoUrl,'');assert.equal(removed.body.match.status,'COMPLETED');
 });
+
+
+test('any active member can complete only their own athlete profile and retain their own registration history',async()=>{
+ await fixture();await person('viewer',['MEMBER']);await person('manager',['ADMIN']);await person('coach',['COACH']);
+ for(const [id,role]of [['viewer','MEMBER'],['manager','ADMIN'],['coach','COACH']]){
+  assert.equal((await call(member,'athlete',id,{},'GET')).statusCode,200);
+  const result=await call(member,'athlete',id,{userId:'b',roles:['CEO'],birthDate:'19900101',belt:'WHITE',gender:'MALE',defaultWeightKg:69},'PUT');assert.equal(result.statusCode,201);assert.equal(result.body.athlete.userId,id);
+  assert.deepEqual((await getJson('users/'+id+'.json')).roles,[role,'ATHLETE']);assert.equal((await getJson('athletes/b.json')).birthDate,'2000-01-01');
+ }
+ const reg=(await call(member,'registrations','viewer',{tournamentId:'t',divisionId:'d'})).body.registration;assert(reg);
+ const user=await getJson('users/viewer.json');user.roles=['MEMBER'];await seed('users/viewer.json',user);
+ const rows=(await call(member,'registrations','viewer',{},'GET')).body.registrations;assert.deepEqual(rows.map(x=>x.id),[reg.id]);assert.equal((await call(member,'registrations','coach',{},'GET')).body.registrations.length,0);
+ assert.equal((await call(admin,'academy-status','viewer',{academyId:'not-owned',status:'APPROVED'})).statusCode,403);
+});

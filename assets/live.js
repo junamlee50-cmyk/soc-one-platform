@@ -18,14 +18,16 @@ async function refreshLiveBoard(){
     }liveBrackets.append(section);
   }
 }
-async function initLive(){const data=await SOC.get('/api/tournaments');if(!data.ok){liveMsg.textContent=data.message||'공개 대회를 불러오지 못했습니다.';return;}
-  const rows=data.tournaments.filter(t=>['REGISTRATION_OPEN','PUBLISHED','CLOSED','COMPLETED'].includes(t.status));
-  for(const t of rows){const option=document.createElement('option');option.value=t.id;option.textContent=t.name;liveTournament.append(option);}
-  if(!rows.length){liveMsg.textContent='공개된 대회가 없습니다.';return;}
-  const requested=new URL(location.href).searchParams.get('tournamentId');if(rows.some(t=>t.id===requested))liveTournament.value=requested;
-  await refreshLiveBoard();
+let liveListRequest=0;
+async function initLive(){
+ const serial=++liveListRequest,selected=liveTournament.value;++liveRequest;refreshLive.disabled=true;liveTournament.disabled=true;liveMsg.textContent='대회 목록을 불러오는 중입니다.';
+ const data=await SOC.get('/api/tournaments');if(serial!==liveListRequest)return;refreshLive.disabled=false;liveTournament.replaceChildren();
+ const rows=(data.tournaments||[]).filter(t=>['REGISTRATION_OPEN','PUBLISHED','CLOSED','COMPLETED'].includes(t.status));
+ for(const t of rows){const option=document.createElement('option');option.value=t.id;option.textContent=t.name;liveTournament.append(option);}
+ if(!rows.length){const option=document.createElement('option');option.value='';option.textContent=data.ok?'선택할 수 있는 대회가 없습니다.':'대회 목록을 불러오지 못했습니다.';liveTournament.append(option);liveBrackets.replaceChildren();liveMsg.textContent=data.ok?'아직 공개된 대회가 없습니다. 대회가 공개되면 목록에서 선택할 수 있습니다.':'대회 목록을 불러오지 못했습니다. 새로고침을 눌러 다시 확인해 주세요.';return;}
+ liveTournament.disabled=false;const requested=selected||new URL(location.href).searchParams.get('tournamentId');if(rows.some(t=>t.id===requested))liveTournament.value=requested;await refreshLiveBoard();
 }
-refreshLive.onclick=refreshLiveBoard;liveTournament.onchange=refreshLiveBoard;
+refreshLive.onclick=initLive;liveTournament.onchange=refreshLiveBoard;
 const liveTimer=setInterval(()=>{if(!document.hidden)refreshLiveBoard();},15000);
 window.addEventListener('pagehide',()=>clearInterval(liveTimer));
 window.addEventListener('offline',()=>{liveBrackets.replaceChildren();liveMsg.textContent='오프라인입니다. 경기 상태를 확인할 수 없습니다. 현장 안내를 따라 주세요.';});

@@ -25,9 +25,9 @@ export async function fullJourney({browser,base,admin,query,errors,typeCalendar}
  }
  try{
   const coach=await signup('통합시험 관장','journey-coach@example.test','COACH');
-  await coach.p.getByRole('link',{name:'관장 APP',exact:true}).click();await coach.p.locator('#aName').fill('통합시험 도장');await coach.p.locator('#aRegion').fill('부산');await coach.p.locator('#aAddress').fill('시험 전용 주소');await coach.p.getByRole('button',{name:'가입신청',exact:true}).click();await coach.p.getByText('신청 완료 · 운영진 승인 대기',{exact:true}).waitFor();await profile(coach);
-  await admin.goto(base+'/admin.html?tab=academies');const dojangRow=admin.locator('#academyList .dataRow').filter({hasText:'통합시험 도장'});await dojangRow.getByRole('button',{name:'승인',exact:true}).click();await dojangRow.getByText(/APPROVED/).waitFor();
-  const academy=(await read('academies','name','통합시험 도장'))[0];assert.equal(academy.status,'APPROVED');
+  await coach.p.getByRole('link',{name:'관장 APP',exact:true}).click();await coach.p.locator('#aName').fill('통합시험 도장');await coach.p.locator('#aRegion').fill('부산');await coach.p.locator('#aAddress').fill('시험 전용 주소');await coach.p.getByRole('button',{name:'가입신청',exact:true}).click();await coach.p.getByText('신청 완료 · 관리자 승인 대기 · 관리자가 도장명과 신청자를 확인한 뒤 승인합니다.',{exact:true}).waitFor();await profile(coach);
+  await admin.goto(base+'/');await admin.locator('#socAdminButton').click();await admin.getByRole('button',{name:'도장 등록·승인',exact:true}).click();const academyFrame=admin.frameLocator('#socAdminFrame');const dojangRow=academyFrame.locator('#academyList .dataRow').filter({hasText:'통합시험 도장'});await dojangRow.getByRole('button',{name:'승인',exact:true}).click();await dojangRow.getByText('승인 완료',{exact:true}).waitFor();
+  const academy=(await read('academies','name','통합시험 도장'))[0];assert.equal(academy.status,'APPROVED');await academyFrame.locator('#academyReviewMessage').getByText('도장 등록을 승인했습니다.',{exact:true}).waitFor();await admin.getByRole('button',{name:'사이트로 돌아가기',exact:true}).click();
   const a=await signup('통합시험 선수 A','journey-a@example.test'),b=await signup('통합시험 선수 B','journey-b@example.test'),reviewer=await signup('통합시험 검토자','journey-review@example.test');
   for(const person of [a,b]){await profile(person,'통합시험 도장 · 부산');await verifyEmail(person);}
   // Grant the second reviewer through the actual CEO user-management screen.

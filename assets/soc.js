@@ -18,7 +18,7 @@ SOC.logout=async function(){const result=await SOC.post('/api/auth/logout',{});i
 (()=>{
  if(window.top!==window.self)return;
  const allowed=u=>u?.roles?.some(r=>['STAFF','ADMIN','CEO'].includes(r));
- const views=[['tournaments','대회 일정','/admin?tab=tournaments'],['registrations','신청자·인원','/admin?tab=registrations'],['payments','입금·환불','/payments'],['operations','운영센터','/operations'],['field','현장 운영','/tournament-ops'],['settings','운영 설정','/service-settings'],['inquiries','문의 관리','/inquiries?view=admin']];
+ const views=[['tournaments','대회 일정','/admin?tab=tournaments'],['academies','도장 등록·승인','/admin?tab=academies'],['registrations','신청자·인원','/admin?tab=registrations'],['payments','입금·환불','/payments'],['operations','운영센터','/operations'],['field','현장 운영','/tournament-ops'],['settings','운영 설정','/service-settings'],['inquiries','문의 관리','/inquiries?view=admin']];
  let dialog,frame,opener,accessRevision=0;
  function close(){if(!dialog)return;if(dialog.open)dialog.close();frame?.remove();frame=null;document.documentElement.classList.remove('socAdminOpen');}
  function selectView(key){
@@ -75,3 +75,5 @@ SOC.demoReady.then(d=>{
  if(d.active){const main=document.querySelector('main')||document.body,notice=document.createElement('div');notice.id='socDemoNotice';notice.className='notice';notice.style.margin='16px';notice.textContent='테스트 관리자 모드 · 실제 회원정보와 분리된 공용 테스트 공간입니다. ';const exit=document.createElement('button');exit.className='btn';exit.textContent='테스트 종료';exit.onclick=()=>SOC.logout();notice.append(exit);main.prepend(notice);}
  if(document.querySelector('[data-public-admin]'))SOC.mountDemoAccount(document.querySelector('footer')||document.querySelector('main'),d=>{SOC.openAccount('login','admin');document.getElementById('accountEmail').value=d.email;document.getElementById('accountPassword').value=d.password;});
 });
+
+SOC.registrationError=code=>({athlete_role_required:'선수정보를 먼저 등록해 주세요.',athlete_profile_required:'선수정보를 먼저 등록해 주세요.',birth_date_required:'생년월일을 확인해 주세요.',gender_mismatch:'성별에 맞는 참가 부문을 선택해 주세요.',belt_mismatch:'벨트에 맞는 참가 부문을 선택해 주세요.',weight_mismatch:'등록한 체중에 맞는 체급을 선택해 주세요.',age_mismatch:'연령에 맞는 참가 부문을 선택해 주세요.',verified_guardian_consent_required:'미성년 선수는 보호자 동의 확인이 필요합니다.',academy_not_approved:'소속 도장의 등록 승인 후 신청할 수 있습니다.',email_verification_required:'MY SOC에서 이메일 인증을 완료해 주세요.',registration_not_open:'현재 접수 중인 대회가 아닙니다.',registration_not_started:'아직 접수 시작 전입니다.',registration_closed:'접수가 마감되었습니다.',duplicate_registration:'이미 신청한 부문입니다. 내 대회 신청내역을 확인해 주세요.',division_full:'해당 부문의 정원이 마감되었습니다.',division_bracket_locked:'대진이 확정되어 신청이 마감되었습니다.',bank_transfer_not_configured:'운영진이 입금계좌를 등록한 뒤 신청할 수 있습니다.'}[code]||'신청을 처리하지 못했습니다. 입력 내용과 인터넷 연결을 확인해 주세요.');
