@@ -63,8 +63,7 @@ async function handler(req,res){
       const opens=trn.registrationOpenAt?Date.parse(trn.registrationOpenAt):null;
       const closes=trn.registrationCloseAt?Date.parse(trn.registrationCloseAt):null;
       const earlyEnd=trn.earlyUntil?Date.parse(trn.earlyUntil):null;
-      const regularEnd=trn.regularUntil?Date.parse(trn.regularUntil):null;
-      if([opens,closes,earlyEnd,regularEnd].some(x=>x!==null&&!Number.isFinite(x)))return res.status(409).json({ok:false,error:'invalid_registration_schedule'});
+      if([opens,closes,earlyEnd].some(x=>x!==null&&!Number.isFinite(x)))return res.status(409).json({ok:false,error:'invalid_registration_schedule'});
       if(opens!==null&&Date.now()<opens)return res.status(409).json({ok:false,error:'registration_not_started'});
       if(closes!==null&&Date.now()>=closes)return res.status(409).json({ok:false,error:'registration_closed'});
       const div=await getJson('divisions/'+divisionId+'.json');if(!div||div.tournamentId!==tournamentId||div.active===false)return res.status(404).json({ok:false,error:'division_not_found'});

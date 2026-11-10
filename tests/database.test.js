@@ -495,17 +495,37 @@ test('administrator saves and edits every fee, rejects blank active fees and sta
  const old=await manualFixture(),before=await getJson('registrations/'+old.id+'.json');
  const body={id:'t',expectedRevision:0,name:'Fee configuration',level:'REGIONAL_OPEN',startAt:'2027-03-01T01:00:00Z',status:'COMING_SOON',rulesId:'TEST-RULES',registrationOpenAt:'2026-11-01T00:00:00+09:00',earlyUntil:'2026-11-05T00:00:00+09:00',regularUntil:'2027-01-01T00:00:00+09:00',registrationCloseAt:'2027-02-01T00:00:00+09:00',earlyFee:51000,regularFee:61000,lateFee:71000,additionalDisciplineFee:31000,absoluteFee:27000,reason:'Updated public fees',discounts:[]};
  assert.equal((await call(publicApi,'tournaments','a',body)).statusCode,403);
- for(const field of ['earlyFee','regularFee','lateFee'])assert.equal((await call(publicApi,'tournaments','staff',{...body,[field]:''})).body.error,'fee_required');
+ for(const field of ['earlyFee','regularFee'])assert.equal((await call(publicApi,'tournaments','staff',{...body,[field]:''})).body.error,'fee_required');
  for(const value of [-1,1.5,'invalid'])assert.equal((await call(publicApi,'tournaments','staff',{...body,regularFee:value})).body.error,'invalid_fee');
  const updated=await call(publicApi,'tournaments','staff',body);assert.equal(updated.statusCode,200,JSON.stringify(updated.body));
- assert.deepEqual(updated.body.tournament.fees,{early:51000,regular:61000,late:71000,additionalDiscipline:31000,absolute:27000});
+ assert.deepEqual(updated.body.tournament.fees,{early:51000,regular:61000,additionalDiscipline:31000,absolute:27000});
  assert.equal(updated.body.tournament.revision,1);
+ assert.equal(Object.hasOwn(updated.body.tournament,'regularUntil'),false);
+ assert.equal(Object.hasOwn(updated.body.tournament.fees,'late'),false);
  assert.equal((await call(publicApi,'tournaments','staff',{...body,regularFee:1})).body.error,'tournament_changed');
  assert.deepEqual(await getJson('registrations/'+old.id+'.json'),before);
  const publicRows=(await call(publicApi,'tournaments',null,{},'GET')).body.tournaments;
- assert.equal(publicRows[0].feeSchedule.length,3);assert.equal(publicRows[0].feeSchedule[1].amount,61000);
- const two=await call(publicApi,'tournaments','staff',{...body,expectedRevision:1,regularUntil:'',lateFee:'',additionalDisciplineFee:'',absoluteFee:''});assert.equal(two.statusCode,200);assert.equal(two.body.tournament.fees.late,null);assert.equal(two.body.tournament.fees.absolute,null);
+ assert.equal(publicRows[0].feeSchedule.length,2);assert.equal(publicRows[0].feeSchedule[1].amount,61000);
+ const two=await call(publicApi,'tournaments','staff',{...body,expectedRevision:1,regularUntil:'',lateFee:'',additionalDisciplineFee:'',absoluteFee:''});assert.equal(two.statusCode,200);assert.equal(Object.hasOwn(two.body.tournament.fees,'late'),false);assert.equal(two.body.tournament.fees.absolute,null);
  const free=await call(publicApi,'tournaments','staff',{...body,id:undefined,name:'Explicit free event',earlyUntil:'',regularUntil:'',earlyFee:'',regularFee:0,lateFee:'',additionalDisciplineFee:'',absoluteFee:''});assert.equal(free.statusCode,201);assert.equal(free.body.tournament.fees.regular,0);
+});
+
+test('retired late settings cannot charge new entries and registration still closes on time',async()=>{
+ await fixture();const current=Date.now(),event=await getJson('tournaments/t.json');
+ Object.assign(event,{registrationOpenAt:new Date(current-3*86400000).toISOString(),earlyUntil:new Date(current-2*86400000).toISOString(),regularUntil:new Date(current-86400000).toISOString(),registrationCloseAt:new Date(current+86400000).toISOString(),fees:{early:49000,regular:59000,late:99000}});
+ await seed('tournaments/t.json',event);
+ // Existing accepted late-period entries retain their original financial snapshot.
+ const legacy={id:'legacy',userId:'historic',tournamentId:'t',divisionId:'d',amount:99000,pricingPhase:'LATE',priceSnapshot:{phase:'LATE',amount:99000},status:'REGISTERED',paymentStatus:'PAID'};
+ await seed('registrations/legacy.json',legacy);
+ const params={tournamentId:'t',divisionId:'d'},quote=await call(member,'registration-quote','a',{},'GET',params);
+ assert.equal(quote.body.price.phase,'REGULAR');assert.equal(quote.body.price.amount,59000);
+ const schedule=(await call(publicApi,'tournaments',null,{},'GET')).body.tournaments[0].feeSchedule;
+ assert.deepEqual(schedule.map(row=>row.phase),['EARLY','REGULAR']);assert.equal(schedule[1].endsAt,event.registrationCloseAt);
+ const saved=await call(member,'registrations','a',{...params,expectedPriceKey:quote.body.priceKey});
+ assert.equal(saved.statusCode,201,JSON.stringify(saved.body));assert.equal(saved.body.registration.amount,59000);assert.equal(saved.body.registration.pricingPhase,'REGULAR');
+ event.registrationCloseAt=new Date(current-1000).toISOString();await seed('tournaments/t.json',event);
+ assert.equal((await call(member,'registrations','b',params)).body.error,'registration_closed');
+ assert.deepEqual(await getJson('registrations/legacy.json'),legacy);
 });
 
 test('server quote detects price changes before entry and preserves the accepted amount afterwards',async()=>{

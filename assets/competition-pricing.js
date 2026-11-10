@@ -18,6 +18,6 @@ async function refreshRegistrationQuote(){
  if(request!==quoteRequest)return;
  if(!d.ok){regPrice.textContent=({fee_not_configured:'이 부문의 참가비가 아직 설정되지 않았습니다.',base_discipline_required:'앱솔루트는 같은 종목의 체급 부문을 먼저 신청해야 합니다.',invalid_discount:'사용할 수 없는 할인코드입니다.',discount_expired:'할인코드 적용 기간이 아닙니다.',discount_not_applicable:'선택한 부문에 적용할 수 없는 할인코드입니다.'}[d.error]||'신청금액을 확인하지 못했습니다. 로그인 상태와 참가 부문을 확인해 주세요.');return;}
  registrationQuote={...d,tournamentId,divisionId,discountCode};
- const phase={EARLY:'조기등록',REGULAR:'일반등록',LATE:'추가등록'}[d.price.phase],kind={BASE:'',ADDITIONAL_DISCIPLINE:' · 추가 GI·NO-GI',ABSOLUTE:' · 앱솔루트'}[d.price.kind];
+ const phase={EARLY:'사전등록',REGULAR:'일반등록'}[d.price.phase],kind={BASE:'',ADDITIONAL_DISCIPLINE:' · 추가 GI·NO-GI',ABSOLUTE:' · 앱솔루트'}[d.price.kind];
  regPrice.textContent=phase+kind+' · 신청금액 '+SOC.money(d.price.amount)+(d.price.discountAmount?' (할인 '+SOC.money(d.price.discountAmount)+')':'');regSubmit.disabled=false;
 }
