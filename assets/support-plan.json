@@ -4,8 +4,8 @@
   "status": "모집 준비 중 · 첫 시즌 지원안",
   "tiers": [
     {"id":"DEVELOPMENT","name":"육성선수","places":20,"annualCap":500000,"audience":"꾸준히 수련하며 대회 경험을 쌓는 선수","items":[{"label":"도복·래시가드 등 훈련장비","amount":300000},{"label":"SOC 대회 참가비 · 7만원 × 2회","amount":140000},{"label":"지정 합동훈련 · 3만원 × 2회","amount":60000}]},
-    {"id":"SUPPORTED","name":"지원선수","places":10,"annualCap":1500000,"audience":"시즌 동안 국내대회에 지속적으로 출전하는 선수","items":[{"label":"도복·훈련장비","amount":300000},{"label":"SOC 대회 참가비 · 7만원 × 4회","amount":280000},{"label":"지정 국내대회 교통·숙박 실비","amount":800000},{"label":"지정 합동훈련 · 3만원 × 4회","amount":120000}]},
-    {"id":"ELITE","name":"엘리트선수","places":5,"annualCap":4000000,"audience":"국내 상위권 성적을 바탕으로 국제대회를 준비하는 선수","items":[{"label":"선수용 도복·훈련장비","amount":400000},{"label":"지정대회 참가비 · 7만원 × 6회","amount":420000},{"label":"지정 국내외대회 항공·교통·숙박 실비","amount":3000000},{"label":"지정 합동훈련 · 3만원 × 6회","amount":180000}]}
+    {"id":"SUPPORTED","name":"지원선수","places":10,"annualCap":1500000,"audience":"시즌 동안 국내대회에 지속적으로 출전하는 선수","items":[{"label":"도복·훈련장비","amount":300000},{"label":"SOC 대회 참가비 · 7만원 × 4회","amount":280000},{"label":"지정 국내대회 교통비 및 숙박비","amount":800000},{"label":"지정 합동훈련 · 3만원 × 4회","amount":120000}]},
+    {"id":"ELITE","name":"엘리트선수","places":5,"annualCap":4000000,"audience":"국내 상위권 성적을 바탕으로 국제대회를 준비하는 선수","items":[{"label":"선수용 도복·훈련장비","amount":400000},{"label":"지정대회 참가비 · 7만원 × 6회","amount":420000},{"label":"지정 국내외대회 항공료, 교통비 및 숙박비","amount":3000000},{"label":"지정 합동훈련 · 3만원 × 6회","amount":180000}]}
   ],
   "pro":{"showMin":300000,"showMax":1000000,"winBonus":200000,"performanceBonus":300000}
 }
