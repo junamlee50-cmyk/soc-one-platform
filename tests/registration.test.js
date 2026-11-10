@@ -38,3 +38,31 @@ test('admin configuration rejects negative prices and impossible schedules or di
  assert.equal(validateTournament({...valid,status:'REGISTRATION_OPEN'}),'registration_window_required');
  assert.equal(validateDivision({discipline:'GI',gender:'MALE',belt:'WHITE',ageMin:18,ageMax:17}),'invalid_age_range');
 });
+
+test('fee periods change at the exact Korean-time boundary and two-period events keep regular fees until close',async()=>{
+ const {feeSchedule}=await import('../lib/registration.js');
+ const event={...t,registrationOpenAt:'2027-01-01T00:00:00+09:00',earlyUntil:'2027-01-10T00:00:00+09:00',regularUntil:'2027-01-20T00:00:00+09:00',registrationCloseAt:'2027-02-01T00:00:00+09:00'};
+ const at=value=>registrationPrice(event,{discipline:'GI'},[],'',Date.parse(value));
+ assert.equal(at('2027-01-09T23:59:59.999+09:00').amount,49000);
+ assert.equal(at(event.earlyUntil).amount,59000);
+ assert.equal(at('2027-01-19T23:59:59.999+09:00').amount,59000);
+ assert.equal(at(event.regularUntil).amount,69000);
+ assert.equal(feeSchedule(event).length,3);
+ const two={...event,regularUntil:'',fees:{...event.fees,late:null}};
+ assert.equal(registrationPrice(two,{discipline:'GI'},[],'',Date.parse('2027-01-25')).amount,59000);
+ assert.equal(feeSchedule(two).length,2);assert.equal(feeSchedule(two)[1].endsAt,event.registrationCloseAt);
+ assert.equal(feeSchedule({...two,earlyUntil:''}).length,1);
+});
+
+test('blank fees never become free entries and enabled periods require an explicit amount',async()=>{
+ const {parseFee}=await import('../lib/configuration.js');
+ for(const value of [undefined,null,'','  '])assert.equal(parseFee(value),null);
+ assert.equal(parseFee('0'),0);assert.equal(parseFee(0),0);assert.equal(parseFee('49000'),49000);
+ for(const value of [true,{},[],'-1','1.5'])assert(Number.isNaN(parseFee(value)));
+ const valid={...t,status:'DRAFT',rankingMultiplier:1,discounts:[]};
+ assert.equal(validateTournament({...valid,fees:{regular:null}}),'fee_required');
+ assert.equal(validateTournament({...valid,earlyUntil:'2027-01-10',fees:{regular:59000,early:null}}),'fee_required');
+ assert.equal(validateTournament({...valid,regularUntil:'2027-01-20',fees:{regular:59000,late:null}}),'fee_required');
+ assert.equal(validateTournament({...valid,registrationOpenAt:'2027-01-10',earlyUntil:'2027-01-10'}),'invalid_registration_schedule');
+ assert.equal(validateTournament({...valid,fees:{regular:0,early:null,late:null}}),null);
+});

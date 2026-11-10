@@ -27,13 +27,14 @@ const member=(await import('../api/member.js')).default;
 const ops=(await import('../api/ops.js')).default;
 const auth=(await import('../api/auth.js')).default;
 const admin=(await import('../api/admin.js')).default;
+const publicApi=(await import('../api/public.js')).default;
 const {totp,decryptSecret}=await import('../lib/mfa.js');
 await query(await readFile(new URL('../db/migrations/001_operational_records.sql',import.meta.url),'utf8'));
 await query(await readFile(new URL('../db/migrations/002_manual_payments.sql',import.meta.url),'utf8'));
 const seed=(path,value)=>putJson(path,value);
 const response=()=>({statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.statusCode=n;return this},json(body){this.body=body;return this},send(body){this.body=body;return this},end(){return this}});
-async function call(handler,op,userId,body={},method='POST'){
- const res=response();await handler({method,query:{op},body,headers:{host:'soc.test',origin:'https://soc.test','content-type':'application/json',cookie:'__Host-soc_session='+userId}},res);return res;
+async function call(handler,op,userId,body={},method='POST',queryParams={}){
+ const res=response();await handler({method,query:{op,...queryParams},body,headers:{host:'soc.test',origin:'https://soc.test','content-type':'application/json',cookie:'__Host-soc_session='+userId}},res);return res;
 }
 async function person(id,roles=['ATHLETE']){
  if(roles.includes('ATHLETE'))await seed('athletes/'+id+'.json',{userId:id,birthDate:'2000-01-01',belt:'WHITE',gender:'MALE',defaultWeightKg:69});
@@ -488,4 +489,34 @@ test('registration preserves the accepted refund policy after later policy chang
  const created=await call(member,'registrations','a',{...request,policyId:policy.id,refundConsent:true});assert.equal(created.statusCode,201);
  await saveService(2,{...serviceDraft,policyVersion:'TEST-2',refundText:'Changed synthetic refund policy. '.repeat(5)});await publishService(3);
  const record=await getJson('registrations/'+created.body.registration.id+'.json');assert.equal(record.policySnapshot.policyId,policy.id);assert.equal(record.policySnapshot.refundText,policy.refundText);
+});
+
+test('administrator saves and edits every fee, rejects blank active fees and stale edits, and retains old entry prices',async()=>{
+ const old=await manualFixture(),before=await getJson('registrations/'+old.id+'.json');
+ const body={id:'t',expectedRevision:0,name:'Fee configuration',level:'REGIONAL_OPEN',startAt:'2027-03-01T01:00:00Z',status:'COMING_SOON',rulesId:'TEST-RULES',registrationOpenAt:'2026-11-01T00:00:00+09:00',earlyUntil:'2026-11-05T00:00:00+09:00',regularUntil:'2027-01-01T00:00:00+09:00',registrationCloseAt:'2027-02-01T00:00:00+09:00',earlyFee:51000,regularFee:61000,lateFee:71000,additionalDisciplineFee:31000,absoluteFee:27000,reason:'Updated public fees',discounts:[]};
+ assert.equal((await call(publicApi,'tournaments','a',body)).statusCode,403);
+ for(const field of ['earlyFee','regularFee','lateFee'])assert.equal((await call(publicApi,'tournaments','staff',{...body,[field]:''})).body.error,'fee_required');
+ for(const value of [-1,1.5,'invalid'])assert.equal((await call(publicApi,'tournaments','staff',{...body,regularFee:value})).body.error,'invalid_fee');
+ const updated=await call(publicApi,'tournaments','staff',body);assert.equal(updated.statusCode,200,JSON.stringify(updated.body));
+ assert.deepEqual(updated.body.tournament.fees,{early:51000,regular:61000,late:71000,additionalDiscipline:31000,absolute:27000});
+ assert.equal(updated.body.tournament.revision,1);
+ assert.equal((await call(publicApi,'tournaments','staff',{...body,regularFee:1})).body.error,'tournament_changed');
+ assert.deepEqual(await getJson('registrations/'+old.id+'.json'),before);
+ const publicRows=(await call(publicApi,'tournaments',null,{},'GET')).body.tournaments;
+ assert.equal(publicRows[0].feeSchedule.length,3);assert.equal(publicRows[0].feeSchedule[1].amount,61000);
+ const two=await call(publicApi,'tournaments','staff',{...body,expectedRevision:1,regularUntil:'',lateFee:'',additionalDisciplineFee:'',absoluteFee:''});assert.equal(two.statusCode,200);assert.equal(two.body.tournament.fees.late,null);assert.equal(two.body.tournament.fees.absolute,null);
+ const free=await call(publicApi,'tournaments','staff',{...body,id:undefined,name:'Explicit free event',earlyUntil:'',regularUntil:'',earlyFee:'',regularFee:0,lateFee:'',additionalDisciplineFee:'',absoluteFee:''});assert.equal(free.statusCode,201);assert.equal(free.body.tournament.fees.regular,0);
+});
+
+test('server quote detects price changes before entry and preserves the accepted amount afterwards',async()=>{
+ await fixture();const params={tournamentId:'t',divisionId:'d'};
+ assert.equal((await call(member,'registration-quote','missing',{},'GET',params)).statusCode,401);
+ const quote=await call(member,'registration-quote','a',{},'GET',params);assert.equal(quote.statusCode,200);assert.equal(quote.body.price.amount,59000);
+ const event=await getJson('tournaments/t.json');event.fees.regular=61000;await seed('tournaments/t.json',event);
+ const stale=await call(member,'registrations','a',{...params,expectedPriceKey:quote.body.priceKey,amount:1});assert.equal(stale.body.error,'price_changed');assert.equal((await listJson('registrations/')).length,0);
+ const fresh=await call(member,'registration-quote','a',{},'GET',params);
+ const saved=await call(member,'registrations','a',{...params,expectedPriceKey:fresh.body.priceKey,amount:1});assert.equal(saved.statusCode,201);assert.equal(saved.body.registration.amount,61000);
+ event.fees.regular=81000;await seed('tournaments/t.json',event);
+ assert.equal((await getJson('registrations/'+saved.body.registration.id+'.json')).priceSnapshot.amount,61000);
+ assert.equal((await call(member,'registration-quote','b',{},'GET',params)).body.price.amount,81000);
 });

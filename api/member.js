@@ -32,6 +32,17 @@ async function handler(req,res){
     res.setHeader('Allow','GET, POST, PUT');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
 
+  if(op==='registration-quote'){
+    const user=await requireUser(req,res,['ATHLETE']);if(!user)return;
+    const tournamentId=clean(req.query.tournamentId,80),divisionId=clean(req.query.divisionId,80);
+    const t=await getJson('tournaments/'+tournamentId+'.json'),division=await getJson('divisions/'+divisionId+'.json');
+    if(!t||t.deletedAt||t.status!=='REGISTRATION_OPEN'||!division||division.active===false||division.tournamentId!==tournamentId)return res.status(404).json({ok:false,error:'registration_not_open'});
+    const existing=await listJson('registrations/',3000,{userId:user.id,tournamentId});
+    const price=registrationPrice(t,division,existing,clean(req.query.discountCode,60));
+    if(price.error)return res.status(409).json({ok:false,error:price.error});
+    return res.status(200).json({ok:true,price,priceKey:hash(JSON.stringify(price)),calculatedAt:now()});
+  }
+
   if(op==='registrations'){
     const user=await requireUser(req,res);if(!user)return;
     if(req.method==='GET'){const rows=(await listJson('registrations/',3000)).filter(x=>x.userId===user.id);return res.status(200).json({ok:true,registrations:rows});}
@@ -63,6 +74,7 @@ async function handler(req,res){
       const other=(await listJson('registrations/',3000,{userId:user.id,tournamentId}));
       const price=registrationPrice(trn,div,other,clean(b.discountCode,60));
       if(price.error)return res.status(409).json({ok:false,error:price.error});
+      if(b.expectedPriceKey!==undefined&&b.expectedPriceKey!==hash(JSON.stringify(price)))return res.status(409).json({ok:false,error:'price_changed',message:'적용 요금이 변경되었습니다. 새 금액을 확인한 뒤 다시 신청해 주세요.'});
       const {amount,phase}=price,id=makeId('reg'),bank=await currentBankSettings();
       if(amount>0&&!validBankSettings(bank))return res.status(409).json({ok:false,error:'bank_transfer_not_configured',message:'운영진의 입금계좌 설정 후 신청할 수 있습니다.'});
       const row={id,tournamentId,divisionId,userId:user.id,socId:user.socId,athleteName:profile?.displayName||user.name,academyId:profile?.academyId||'',discipline:div.discipline,ageGroup:div.ageGroup,belt:div.belt,weightClass:div.weightClass,divisionKey:div.key,gender:div.gender,absolute:!!div.absolute,priceSnapshot:price,paymentMethod:'BANK_TRANSFER',paymentRevision:0,bankTransfer:amount>0?bankSnapshot(bank):null,paymentDueAt:amount>0?paymentDeadline(trn,bank):null,status:'REGISTERED',paymentStatus:'UNPAID',pricingPhase:phase,amount,registeredAt:now(),updatedAt:now()};
@@ -173,6 +185,7 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "registration-quote": ["GET"],
   "inquiries": ["GET","POST"],
   "payment": ["GET","POST"],
   "athlete": [

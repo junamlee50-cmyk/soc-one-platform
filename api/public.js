@@ -1,7 +1,8 @@
+import {feeSchedule} from '../lib/registration.js';
 import {validPoster} from '../lib/event-media.js';
 import {registrationPolicy} from '../lib/service-settings.js';
 import {eventReadiness} from '../lib/event-release.js';
-import { validateTournament, validateDivision } from '../lib/configuration.js';
+import { validateTournament, validateDivision, parseFee } from '../lib/configuration.js';
 import { publicBrackets } from '../lib/public-brackets.js';
 import { seasonRanking, DEFAULT_SEASON } from '../lib/ranking.js';
 import { apiHandler } from '../lib/http.js';
@@ -46,18 +47,18 @@ async function handler(req,res){
   if(op==='tournaments'){
     if(req.method==='GET'){
       const rows=(await listJson('tournaments/',1000)).filter(x=>!x.deletedAt&&['COMING_SOON','REGISTRATION_OPEN','PUBLISHED','CLOSED','COMPLETED'].includes(x.status)).sort((a,b)=>String(a.startAt||'').localeCompare(String(b.startAt||'')));
-      return res.status(200).json({ok:true,tournaments:rows});
+      return res.status(200).json({ok:true,tournaments:rows.map(t=>({...t,feeSchedule:feeSchedule(t)}))});
     }
     if(req.method==='POST'){
       const user=await requireUser(req,res,['STAFF','ADMIN','CEO']);if(!user)return;
       const b=req.body||{},name=clean(b.name,180),level=clean(b.level,30),venueName=clean(b.venueName,180),startAt=clean(b.startAt,40);
       if(!name||!level||!startAt)return res.status(400).json({ok:false,error:'required_fields'});
-      const id=clean(b.id,80)||makeId('trn'),prev=b.id?await getJson('tournaments/'+id+'.json'):null;if(b.id&&!prev)return res.status(404).json({ok:false,error:'tournament_not_found'});const row={id,name,level,rulesId:clean(b.rulesId,80),venueName,venueAddress:clean(b.venueAddress,300),countryCode:clean(b.countryCode,2)||'KR',startAt,registrationOpenAt:clean(b.registrationOpenAt,40),earlyUntil:clean(b.earlyUntil,40),regularUntil:clean(b.regularUntil,40),registrationCloseAt:clean(b.registrationCloseAt,40),status:clean(b.status,30)||'DRAFT',rankingMultiplier:b.rankingMultiplier==null?1:Number(b.rankingMultiplier),discounts:b.discounts||[],fees:{early:Number(b.earlyFee),regular:Number(b.regularFee),late:Number(b.lateFee),additionalDiscipline:b.additionalDisciplineFee==null?null:Number(b.additionalDisciplineFee),absolute:b.absoluteFee==null?null:Number(b.absoluteFee)},createdBy:prev?.createdBy||user.id,createdAt:prev?.createdAt||now(),updatedAt:now()};
+      const id=clean(b.id,80)||makeId('trn'),prev=b.id?await getJson('tournaments/'+id+'.json'):null;if(b.id&&!prev)return res.status(404).json({ok:false,error:'tournament_not_found'});if(prev&&b.expectedRevision!==(prev.revision||0))return res.status(409).json({ok:false,error:'tournament_changed',message:'다른 관리자가 수정했습니다. 대회 설정을 다시 불러와 주세요.'});const row={...prev,id,name,level,rulesId:clean(b.rulesId,80),venueName,venueAddress:b.venueAddress===undefined?(prev?.venueAddress||''):clean(b.venueAddress,300),countryCode:clean(b.countryCode,2)||prev?.countryCode||'KR',startAt,registrationOpenAt:clean(b.registrationOpenAt,40),earlyUntil:clean(b.earlyUntil,40),regularUntil:clean(b.regularUntil,40),registrationCloseAt:clean(b.registrationCloseAt,40),status:clean(b.status,30)||'DRAFT',rankingMultiplier:b.rankingMultiplier==null?1:Number(b.rankingMultiplier),discounts:b.discounts||[],fees:{early:parseFee(b.earlyFee),regular:parseFee(b.regularFee),late:parseFee(b.lateFee),additionalDiscipline:parseFee(b.additionalDisciplineFee),absolute:parseFee(b.absoluteFee)},revision:(prev?.revision||0)+1,createdBy:prev?.createdBy||user.id,createdAt:prev?.createdAt||now(),updatedAt:now()};
+      const error=validateTournament(row);if(error)return res.status(400).json({ok:false,error});
       if(row.status==='REGISTRATION_OPEN'){const ready=await eventReadiness(row);if(!ready.ready)return res.status(409).json({ok:false,error:'event_not_ready',message:'운영센터에서 접수 개시 준비 항목을 확인해 주세요.',blockers:ready.blockers});}
       if(prev?.deletedAt)return res.status(409).json({ok:false,error:'restore_event_before_edit'});
       row.summary=clean(b.summary??prev?.summary,1600);row.posterImage=b.posterImage===undefined?(prev?.posterImage||''):b.posterImage;
       if(!validPoster(row.posterImage))return res.status(400).json({ok:false,error:'invalid_poster',message:'750KB 이하 PNG·JPEG·WebP 이미지를 사용하세요.'});
-      const error=validateTournament(row);if(error)return res.status(400).json({ok:false,error});
       if(prev&&(row.rulesId!==prev.rulesId||row.rankingMultiplier!==prev.rankingMultiplier)&&(await listJson('brackets/',1000,{tournamentId:id})).length)return res.status(409).json({ok:false,error:'rules_locked_after_bracket'});
       const reason=clean(b.reason,500);if(prev&&!reason)return res.status(400).json({ok:false,error:'change_reason_required'});
       await putJson('tournaments/'+id+'.json',row,{overwrite:!!prev});
