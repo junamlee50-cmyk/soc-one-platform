@@ -1,3 +1,4 @@
+import {saveMatchVideo} from '../lib/match-video.js';
 import { bracketFactor, validateRules } from '../lib/rules.js';
 import { assignmentActive, assignmentCoversMatch } from '../lib/referee-scope.js';
 import { matchTransitionError } from '../lib/match-state.js';
@@ -16,6 +17,7 @@ async function propagateBye(match,map){const a=match.athleteA,b=match.athleteB;i
 
 async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
+  if(op==='match-video'){const user=await requireUser(req,res,['STAFF','ADMIN','CEO']);if(!user)return;return saveMatchVideo(req,res,user);}
   const user=await requireUser(req,res,['REFEREE','STAFF','ADMIN','CEO']);if(!user)return;
   const isStaff=['STAFF','ADMIN','CEO'].some(r=>(user.roles||[]).includes(r));
   const assignments=isStaff?[]:(await listJson('referee-assignments/',3000,{refereeUserId:user.id})).filter(x=>assignmentActive(x));
@@ -177,6 +179,7 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "match-video": ["POST"],
   "brackets": ["GET"],
   "match-state": ["POST"],
   "bracket-visibility": ["POST"],

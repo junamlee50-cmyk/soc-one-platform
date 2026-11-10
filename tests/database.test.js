@@ -520,3 +520,40 @@ test('server quote detects price changes before entry and preserves the accepted
  assert.equal((await getJson('registrations/'+saved.body.registration.id+'.json')).priceSnapshot.amount,61000);
  assert.equal((await call(member,'registration-quote','b',{},'GET',params)).body.price.amount,81000);
 });
+
+test('continuous birth date entry validates real dates and rejects malformed or future values',async()=>{
+ const {normalizeBirthDate}=await import('../lib/member-profile.js');
+ for(const input of ['19780405','1978-04-05','1978.04.05'])assert.equal(normalizeBirthDate(input),'1978-04-05');
+ assert.equal(normalizeBirthDate('20000229'),'2000-02-29');
+ for(const input of ['19780229','20010229','19781301','197804051','21000101','18990101','197804-05-일',null])assert.equal(normalizeBirthDate(input),null);
+ await person('a');const result=await call(member,'athlete','a',{birthDate:'19780405',academyName:'직접 입력 도장'},'PUT');assert.equal(result.body.athlete.birthDate,'1978-04-05');
+ assert.equal((await call(member,'athlete','a',{birthDate:'20010229'},'PUT')).statusCode,400);assert.equal((await getJson('athletes/a.json')).birthDate,'1978-04-05');
+});
+test('coach sees own pending dojang, can save affiliation and athlete profile, and cannot choose another pending dojang',async()=>{
+ await person('coach',['COACH','MEMBER']);await person('other');
+ for(const [id,owner,status]of [['own','coach','PENDING'],['private','other','PENDING'],['public','other','APPROVED']])await seed('academies/'+id+'.json',{id,name:id+' 도장',region:'부산',coachUserId:owner,status});
+ let profile=(await call(member,'athlete','coach',{},'GET')).body;assert.equal(profile.athlete.academyId,'own');assert.equal(profile.athlete.academyStatus,'PENDING');assert.deepEqual(profile.academies.map(a=>a.id).sort(),['own','public']);
+ assert.equal((await call(member,'athlete','coach',{birthDate:'19780405',academyId:'private'},'PUT')).statusCode,400);
+ const saved=await call(member,'athlete','coach',{birthDate:'19780405',academyId:'own',roles:['ADMIN']},'PUT');assert.equal(saved.statusCode,201);assert.equal(saved.body.athlete.academyName,'own 도장');
+ assert.deepEqual((await getJson('users/coach.json')).roles,['COACH','MEMBER','ATHLETE']);assert.equal((await getJson('academies/own.json')).status,'PENDING');
+ await call(member,'athlete','coach',{academyId:'',academyName:'지역 수련 도장'},'PUT');profile=(await call(member,'athlete','coach',{},'GET')).body;assert.equal(profile.athlete.academyName,'지역 수련 도장');assert.equal(profile.athlete.academyStatus,'SELF_REPORTED');
+ await call(member,'athlete','coach',{academyId:'',academyName:''},'PUT');assert.equal((await call(member,'athlete','coach',{},'GET')).body.athlete.academyId,'','explicitly clearing affiliation does not reselect it');
+});
+test('MY SOC returns only the signed-in member history and excludes voided awards',async()=>{
+ await fixture();await person('outsider');
+ await seed('matches/mine.json',{id:'mine',tournamentId:'t',status:'COMPLETED',roundNo:1,winnerUserId:'a',athleteA:{userId:'a',name:'a'},athleteB:{userId:'b',name:'b'},videoUrl:'https://youtu.be/abcdefghijk?t=60'});
+ await seed('matches/private.json',{id:'private',tournamentId:'secret',status:'COMPLETED',winnerUserId:'outsider',athleteA:{userId:'outsider',name:'private name'},athleteB:{userId:'z',name:'z'}});
+ for(const [id,user,voidedAt] of [['gold','a',null],['old','a','2026-01-01'],['other','outsider',null]])await seed('medals/'+id+'.json',{id,tournamentId:'t',matchId:'mine',athleteUserId:user,medal:'GOLD',divisionKey:id==='old'?'GI|MASTERS':'GI|ADULT',voidedAt});
+ const response=await call(member,'history','a',{},'GET',{userId:'outsider'});assert.equal(response.statusCode,200);assert.equal(response.body.athlete.userId,'a');assert.equal(response.body.history.length,1);assert.equal(response.body.history[0].name,'SQL Test');assert.equal(response.body.summary.gold,1);assert.equal(response.body.summary.wins,1);assert.equal(response.body.history[0].matches[0].videoUrl,'https://www.youtube.com/watch?v=abcdefghijk&t=60');assert(!JSON.stringify(response.body).includes('private name'));
+ const match=await getJson('matches/mine.json');await seed('matches/mine.json',{...match,status:'SCHEDULED'});const corrected=(await call(member,'history','a',{},'GET')).body;assert.equal(corrected.summary.gold,0);assert.equal(corrected.summary.wins,0);
+ assert.equal((await call(member,'history','missing',{},'GET')).statusCode,401);
+});
+test('only staff can save validated YouTube match links with revision and audit',async()=>{
+ await fixture();await person('referee',['REFEREE']);await seed('matches/m.json',{id:'m',tournamentId:'t',status:'COMPLETED',winnerUserId:'a'});
+ const body={matchId:'m',revision:0,videoUrl:'https://youtu.be/abcdefghijk?si=tracking',reason:'Synthetic video assignment'};
+ for(const user of ['a','referee'])assert.equal((await call(ops,'match-video',user,body)).statusCode,403);
+ for(const url of ['javascript:alert(1)','https://youtube.com.evil.test/watch?v=abcdefghijk','https://user:pass@youtube.com/watch?v=abcdefghijk','https://youtu.be/invalid'])assert.equal((await call(ops,'match-video','staff',{...body,videoUrl:url})).statusCode,400);
+ const saved=await call(ops,'match-video','staff',body);assert.equal(saved.statusCode,200);assert.equal(saved.body.match.videoUrl,'https://www.youtube.com/watch?v=abcdefghijk');assert.equal(saved.body.match.winnerUserId,'a');assert.equal((await call(ops,'match-video','staff',body)).statusCode,409);
+ assert.equal((await listJson('audit/')).filter(a=>a.action==='MATCH_VIDEO_UPDATED').length,1);
+ const removed=await call(ops,'match-video','staff',{...body,revision:1,videoUrl:''});assert.equal(removed.body.match.videoUrl,'');assert.equal(removed.body.match.status,'COMPLETED');
+});

@@ -37,6 +37,11 @@ function renderMatches(){
     if(x.status==='CALLED')buttons.append(actionButton('경기 시작',()=>changeState(x.id,'START')));
     if(isStaff&&['CALLED','IN_PROGRESS'].includes(x.status))buttons.append(actionButton('호출·시작 취소',()=>changeState(x.id,'RESET')));
     if(canCorrect&&x.status==='COMPLETED')buttons.append(actionButton('결과 정정',()=>correctResult(x.id)));
+    if(isStaff){
+      const form=document.createElement('form'),videoLabel=document.createElement('label'),video=document.createElement('input'),reasonLabel=document.createElement('label'),reason=document.createElement('input'),save=document.createElement('button');
+      video.id='matchVideo_'+x.id;video.type='url';video.value=x.videoUrl||'';video.placeholder='https://www.youtube.com/watch?v=...';videoLabel.htmlFor=video.id;videoLabel.textContent='유튜브 경기 영상';reason.id='videoReason_'+x.id;reason.required=true;reason.maxLength=500;reasonLabel.htmlFor=reason.id;reasonLabel.textContent='영상 등록·변경 사유';save.type='submit';save.className='btn';save.textContent='영상 저장';form.append(videoLabel,video,reasonLabel,reason,save);form.style.marginTop='16px';
+      form.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{const d=await SOC.post('/api/operations/match-video',{matchId:x.id,revision:x.videoRevision||0,videoUrl:video.value,reason:reason.value});opsMsg.textContent=d.ok?'경기 영상을 저장했습니다.':showError(d);if(d.ok)await refreshAll();}finally{save.disabled=false;}};row.append(form);
+    }
     row.append(buttons);opsMatches.append(row);
   }
   if(!matches.length)opsMatches.textContent='대진이 없습니다.';updateWinner();

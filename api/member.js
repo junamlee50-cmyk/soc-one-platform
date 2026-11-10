@@ -1,3 +1,5 @@
+import {memberProfile,resolveAffiliation,normalizeBirthDate} from '../lib/member-profile.js';
+import {memberHistory} from '../lib/member-history.js';
 import {currentBankSettings,validBankSettings,bankSnapshot,paymentDeadline,memberPaymentChange,paymentSummary} from '../lib/manual-payments.js';
 import { assignmentActive, assignmentCoversMatch } from '../lib/referee-scope.js';
 import { registrationPrice, eligibility } from '../lib/registration.js';
@@ -19,15 +21,18 @@ async function handler(req,res){
     return inquiries(req,res,user);
   }
 
+  if(op==='history'){const user=await requireUser(req,res);if(!user)return;return res.status(200).json({ok:true,...await memberHistory(user)});}
+
   if(op==='athlete'){
-    const user=await requireUser(req,res,['ATHLETE']);if(!user)return;
+    const user=await requireUser(req,res,['ATHLETE','COACH','ACADEMY_ADMIN']);if(!user)return;
     const path='athletes/'+user.id+'.json';
-    if(req.method==='GET')return res.status(200).json({ok:true,athlete:await getJson(path)});
+    if(req.method==='GET')return res.status(200).json({ok:true,...await memberProfile(user)});
     if(req.method==='POST'||req.method==='PUT'){
-      const b=req.body||{},prev=await getJson(path);let academyId=b.academyId===undefined?(prev?.academyId||''):clean(b.academyId,80),academyName=prev?.academyName||'';
-      if(academyId){const a=await getJson('academies/'+academyId+'.json');if(!a||a.status!=='APPROVED'||a.active===false)return res.status(400).json({ok:false,error:'academy_not_approved'});academyName=a.name;}else academyName='';
-      const row={userId:user.id,socId:user.socId,birthDate:clean(b.birthDate,10)||prev?.birthDate||null,displayName:clean(b.displayName,80)||prev?.displayName||user.name,belt:clean(b.belt,20)||prev?.belt||'WHITE',gender:clean(b.gender,20)||prev?.gender||'',defaultWeightKg:Number(b.defaultWeightKg)||prev?.defaultWeightKg||null,academyId,academyName,publicProfile:Boolean(b.publicProfile),countryCode:clean(b.countryCode,2)||prev?.countryCode||'KR',status:prev?.status||'REGISTERED',createdAt:prev?.createdAt||now(),updatedAt:now()};
-      await putJson(path,row);return res.status(prev?200:201).json({ok:true,athlete:row});
+      const b=req.body||{},prev=await getJson(path),birthDate=normalizeBirthDate(b.birthDate??prev?.birthDate);
+      if(!birthDate)return res.status(400).json({ok:false,error:'invalid_birth_date',message:'생년월일을 8자리로 입력해 주세요. 예: 19780405'});
+      const affiliation=await resolveAffiliation(b,prev,user);if(affiliation.error)return res.status(400).json({ok:false,...affiliation});
+      const row={userId:user.id,socId:user.socId,birthDate,displayName:clean(b.displayName,80)||prev?.displayName||user.name,belt:clean(b.belt,20)||prev?.belt||'WHITE',gender:clean(b.gender,20)||prev?.gender||'',defaultWeightKg:Number(b.defaultWeightKg)||prev?.defaultWeightKg||null,...affiliation,publicProfile:Boolean(b.publicProfile),countryCode:clean(b.countryCode,2)||prev?.countryCode||'KR',status:prev?.status||'REGISTERED',createdAt:prev?.createdAt||now(),updatedAt:now()};
+      row.affiliationSet=true;await putJson(path,row);if(!user.roles.includes('ATHLETE')){user.roles=[...user.roles,'ATHLETE'];user.updatedAt=now();await putJson('users/'+user.id+'.json',user);}return res.status(prev?200:201).json({ok:true,athlete:row});
     }
     res.setHeader('Allow','GET, POST, PUT');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
@@ -77,7 +82,7 @@ async function handler(req,res){
       if(b.expectedPriceKey!==undefined&&b.expectedPriceKey!==hash(JSON.stringify(price)))return res.status(409).json({ok:false,error:'price_changed',message:'적용 요금이 변경되었습니다. 새 금액을 확인한 뒤 다시 신청해 주세요.'});
       const {amount,phase}=price,id=makeId('reg'),bank=await currentBankSettings();
       if(amount>0&&!validBankSettings(bank))return res.status(409).json({ok:false,error:'bank_transfer_not_configured',message:'운영진의 입금계좌 설정 후 신청할 수 있습니다.'});
-      const row={id,tournamentId,divisionId,userId:user.id,socId:user.socId,athleteName:profile?.displayName||user.name,academyId:profile?.academyId||'',discipline:div.discipline,ageGroup:div.ageGroup,belt:div.belt,weightClass:div.weightClass,divisionKey:div.key,gender:div.gender,absolute:!!div.absolute,priceSnapshot:price,paymentMethod:'BANK_TRANSFER',paymentRevision:0,bankTransfer:amount>0?bankSnapshot(bank):null,paymentDueAt:amount>0?paymentDeadline(trn,bank):null,status:'REGISTERED',paymentStatus:'UNPAID',pricingPhase:phase,amount,registeredAt:now(),updatedAt:now()};
+      const row={id,tournamentId,divisionId,userId:user.id,socId:user.socId,athleteName:profile?.displayName||user.name,academyId:profile?.academyId||'',academyName:profile?.academyName||'',discipline:div.discipline,ageGroup:div.ageGroup,belt:div.belt,weightClass:div.weightClass,divisionKey:div.key,gender:div.gender,absolute:!!div.absolute,priceSnapshot:price,paymentMethod:'BANK_TRANSFER',paymentRevision:0,bankTransfer:amount>0?bankSnapshot(bank):null,paymentDueAt:amount>0?paymentDeadline(trn,bank):null,status:'REGISTERED',paymentStatus:'UNPAID',pricingPhase:phase,amount,registeredAt:now(),updatedAt:now()};
       row.policySnapshot=service.policy?{policyId:service.policy.id,version:service.policy.policyVersion,refundText:service.policy.refundText,acceptedAt:now()}:null;
       await putJson('registrations/'+id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,registration:row});
     }
@@ -97,7 +102,7 @@ async function handler(req,res){
 
   if(op==='dashboard'){
     const user=await requireUser(req,res);if(!user)return;const role=String(req.query.role||'athlete').toLowerCase(),roles=user.roles||[];
-    const allowed={athlete:['ATHLETE'],academy:['COACH','ACADEMY_ADMIN'],region:['COMMITTEE'],referee:['REFEREE'],ceo:['CEO']};
+    const allowed={athlete:['ATHLETE','COACH','ACADEMY_ADMIN'],academy:['COACH','ACADEMY_ADMIN'],region:['COMMITTEE'],referee:['REFEREE'],ceo:['CEO']};
     if(allowed[role]&&!allowed[role].some(r=>roles.includes(r)))return res.status(403).json({ok:false,error:'forbidden'});
     if(role==='athlete'){
       const season=String(req.query.season||DEFAULT_SEASON);
@@ -185,6 +190,7 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "history": ["GET"],
   "registration-quote": ["GET"],
   "inquiries": ["GET","POST"],
   "payment": ["GET","POST"],

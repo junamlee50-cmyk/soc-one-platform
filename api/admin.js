@@ -136,6 +136,7 @@ async function handler(req,res){
     if(!reason)return res.status(400).json({ok:false,error:'change_reason_required'});
     if(role==='COMMITTEE'&&action==='GRANT'&&!clean(b.region,80))return res.status(400).json({ok:false,error:'committee_region_required'});
     const target=await getJson('users/'+userId+'.json');if(!target)return res.status(404).json({ok:false,error:'user_not_found'});
+    if(target.demoAccount)return res.status(409).json({ok:false,error:'demo_account_fixed',message:'공용 테스트 계정의 회원 구분은 변경할 수 없습니다.'});
     const before={roles:[...(target.roles||[])],committeeRegion:target.committeeRegion||null};
     if(action==='GRANT')target.roles=[...new Set([...(target.roles||[]),role])];else target.roles=(target.roles||[]).filter(x=>x!==role);
     if(role==='COMMITTEE')target.committeeRegion=action==='GRANT'?clean(b.region,80):null;
