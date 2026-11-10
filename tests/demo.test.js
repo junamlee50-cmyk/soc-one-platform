@@ -65,3 +65,9 @@ test('bad demo passwords are rate limited in the demo database only',async()=>{
  assert.equal((await getPool().query('SELECT count(*)::int n FROM soc_auth_attempts')).rows[0].n,0);assert((await getPool({demo:true}).query('SELECT count(*)::int n FROM soc_auth_attempts')).rows[0].n>0);
  assert.equal((await getPool({demo:true}).query("SELECT count(*)::int n FROM soc_records WHERE collection='users'")).rows[0].n,0);
 });
+test('copied demo records and sessions cannot authenticate outside the isolated transaction',async()=>{
+ const logged=await login(),cookie=cookieOf(logged);
+ const records=await getPool({demo:true}).query("SELECT path,value FROM soc_records WHERE collection IN ('users','user-email','sessions')");for(const row of records.rows)await putJson(row.path,row.value);
+ process.env.VERCEL_ENV='production';assert.equal((await login()).statusCode,401);
+ const forged=cookie.split('; ').filter(c=>!c.startsWith('__Host-soc_demo')).join('; ');assert.equal((await call(auth,'me',{cookie:forged,method:'GET'})).body.error,'invalid_session');
+});

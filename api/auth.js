@@ -3,7 +3,7 @@ import {accountEmail} from '../lib/account-email.js';
 import {requireRegistrationPolicy} from '../lib/service-settings.js';
 import crypto from 'node:crypto';
 import QRCode from 'qrcode';
-import {usesPostgres} from '../lib/database.js';
+import {usesPostgres,isDemoTransaction} from '../lib/database.js';
 import {mfaConfigured,base32,encryptSecret,decryptSecret,matchCounter,verifyMfa,recoveryCodes} from '../lib/mfa.js';
 import { apiHandler } from '../lib/http.js';
 import { getJson, putJson, deletePath, hash, clean, makeId, makeSocId, passwordHash, verifyPassword, now } from '../lib/blobdb.js';
@@ -37,6 +37,7 @@ async function handler(req,res){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
     const b=req.body||{},email=clean(b.email,255).toLowerCase(),password=typeof b.password==='string'?b.password:'';
     if(password.length>256)return res.status(400).json({ok:false,error:'invalid_credentials'});
+    if(email===DEMO_EMAIL&&!isDemoTransaction())return res.status(401).json({ok:false,error:'invalid_credentials'});
     if(email===DEMO_EMAIL)await ensureDemoAccount(password);
     const idx=await getJson('user-email/'+hash(email)+'.json');if(!idx)return res.status(401).json({ok:false,error:'invalid_credentials'});
     const user=await getJson('users/'+idx.userId+'.json');if(!user||user.status!=='ACTIVE'||!verifyPassword(password,user.passwordSalt,user.passwordHash))return res.status(401).json({ok:false,error:'invalid_credentials'});
