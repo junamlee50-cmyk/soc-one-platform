@@ -1,11 +1,35 @@
+import {publicBusiness} from '../lib/business.js';
+import {applyAcademy} from '../lib/academy-review.js';
+import {feeSchedule} from '../lib/registration.js';
+import {validPoster} from '../lib/event-media.js';
+import {registrationPolicy} from '../lib/service-settings.js';
+import {eventReadiness} from '../lib/event-release.js';
+import { validateTournament, validateDivision, parseFee } from '../lib/configuration.js';
+import { publicBrackets } from '../lib/public-brackets.js';
+import { seasonRanking, DEFAULT_SEASON } from '../lib/ranking.js';
+import { apiHandler } from '../lib/http.js';
 import { listJson, putJson, getJson, clean, makeId, now } from '../lib/blobdb.js';
 import { requireUser } from '../lib/auth.js';
 
-export default async function handler(req,res){
+async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
+  if(op==='business')return publicBusiness(req,res);
+  if(op==='service-settings'){
+    const current=await registrationPolicy();
+    const {publishedBy,...policy}=current.policy||{};
+    return res.status(200).json({ok:true,policy:current.policy?policy:null,canRegister:current.canRegister,isPreview:current.isPreview});
+  }
 
   if(op==='health'){
-    return res.status(200).json({ok:true,service:'SOC ONE',environment:process.env.VERCEL_ENV||'unknown',timestamp:new Date().toISOString(),version:'1.0.0-prelaunch'});
+    return res.status(200).json({ok:true,service:'SOC ONE',environment:process.env.VERCEL_ENV||'unknown',timestamp:new Date().toISOString(),version:'1.0.1-prelaunch',commit:process.env.VERCEL_GIT_COMMIT_SHA||null});
+  }
+
+  if(op==='brackets'){
+    const tournamentId=clean(req.query.tournamentId,80);
+    if(!tournamentId)return res.status(400).json({ok:false,error:'tournament_required'});
+    const event=await getJson('tournaments/'+tournamentId+'.json');
+    if(!event||event.deletedAt||!['REGISTRATION_OPEN','PUBLISHED','CLOSED','COMPLETED'].includes(event.status))return res.status(404).json({ok:false,error:'tournament_not_found'});
+    return res.status(200).json({ok:true,tournament:{id:event.id,name:event.name},brackets:await publicBrackets(tournamentId),updatedAt:now()});
   }
 
   if(op==='academies'){
@@ -15,10 +39,7 @@ export default async function handler(req,res){
     }
     if(req.method==='POST'){
       const user=await requireUser(req,res,['COACH','ADMIN','CEO']);if(!user)return;
-      const b=req.body||{},name=clean(b.name,160),region=clean(b.region,80),address=clean(b.address,300);
-      if(!name||!region)return res.status(400).json({ok:false,error:'required_fields'});
-      const id=makeId('aca');const row={id,name,slug:(name+'-'+id.slice(-6)).toLowerCase().replace(/[^a-z0-9가-힣-]+/g,'-'),region,address,coachUserId:user.id,coachName:user.name,status:'PENDING',active:true,createdAt:now(),joinedAt:null};
-      await putJson('academies/'+id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,academy:row});
+      return applyAcademy(req,res,user);
     }
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
@@ -26,14 +47,24 @@ export default async function handler(req,res){
   if(op==='tournaments'){
     if(req.method==='GET'){
       const rows=(await listJson('tournaments/',1000)).filter(x=>!x.deletedAt&&['COMING_SOON','REGISTRATION_OPEN','PUBLISHED','CLOSED','COMPLETED'].includes(x.status)).sort((a,b)=>String(a.startAt||'').localeCompare(String(b.startAt||'')));
-      return res.status(200).json({ok:true,tournaments:rows});
+      return res.status(200).json({ok:true,tournaments:rows.map(t=>({...t,feeSchedule:feeSchedule(t)}))});
     }
     if(req.method==='POST'){
       const user=await requireUser(req,res,['STAFF','ADMIN','CEO']);if(!user)return;
       const b=req.body||{},name=clean(b.name,180),level=clean(b.level,30),venueName=clean(b.venueName,180),startAt=clean(b.startAt,40);
       if(!name||!level||!startAt)return res.status(400).json({ok:false,error:'required_fields'});
-      const id=makeId('trn');const row={id,name,level,venueName,venueAddress:clean(b.venueAddress,300),countryCode:clean(b.countryCode,2)||'KR',startAt,registrationOpenAt:clean(b.registrationOpenAt,40),earlyUntil:clean(b.earlyUntil,40),regularUntil:clean(b.regularUntil,40),registrationCloseAt:clean(b.registrationCloseAt,40),status:clean(b.status,30)||'DRAFT',rankingMultiplier:Number(b.rankingMultiplier)||1,fees:{early:Number(b.earlyFee)||0,regular:Number(b.regularFee)||0,late:Number(b.lateFee)||0,extra:Number(b.extraFee)||0},createdBy:user.id,createdAt:now(),updatedAt:now()};
-      await putJson('tournaments/'+id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,tournament:row});
+      const id=clean(b.id,80)||makeId('trn'),prev=b.id?await getJson('tournaments/'+id+'.json'):null;if(b.id&&!prev)return res.status(404).json({ok:false,error:'tournament_not_found'});if(prev&&b.expectedRevision!==(prev.revision||0))return res.status(409).json({ok:false,error:'tournament_changed',message:'다른 관리자가 수정했습니다. 대회 설정을 다시 불러와 주세요.'});const row={...prev,id,name,level,rulesId:clean(b.rulesId,80),venueName,venueAddress:b.venueAddress===undefined?(prev?.venueAddress||''):clean(b.venueAddress,300),countryCode:clean(b.countryCode,2)||prev?.countryCode||'KR',startAt,registrationOpenAt:clean(b.registrationOpenAt,40),earlyUntil:clean(b.earlyUntil,40),registrationCloseAt:clean(b.registrationCloseAt,40),status:clean(b.status,30)||'DRAFT',rankingMultiplier:b.rankingMultiplier==null?1:Number(b.rankingMultiplier),discounts:b.discounts||[],fees:{early:parseFee(b.earlyFee),regular:parseFee(b.regularFee),additionalDiscipline:parseFee(b.additionalDisciplineFee),absolute:parseFee(b.absoluteFee)},revision:(prev?.revision||0)+1,createdBy:prev?.createdBy||user.id,createdAt:prev?.createdAt||now(),updatedAt:now()};
+      delete row.regularUntil; // Drop retired late-period settings when saving an existing event.
+      const error=validateTournament(row);if(error)return res.status(400).json({ok:false,error});
+      if(row.status==='REGISTRATION_OPEN'){const ready=await eventReadiness(row);if(!ready.ready)return res.status(409).json({ok:false,error:'event_not_ready',message:'운영센터에서 접수 개시 준비 항목을 확인해 주세요.',blockers:ready.blockers});}
+      if(prev?.deletedAt)return res.status(409).json({ok:false,error:'restore_event_before_edit'});
+      row.summary=clean(b.summary??prev?.summary,1600);row.posterImage=b.posterImage===undefined?(prev?.posterImage||''):b.posterImage;
+      if(!validPoster(row.posterImage))return res.status(400).json({ok:false,error:'invalid_poster',message:'750KB 이하 PNG·JPEG·WebP 이미지를 사용하세요.'});
+      if(prev&&(row.rulesId!==prev.rulesId||row.rankingMultiplier!==prev.rankingMultiplier)&&(await listJson('brackets/',1000,{tournamentId:id})).length)return res.status(409).json({ok:false,error:'rules_locked_after_bracket'});
+      const reason=clean(b.reason,500);if(prev&&!reason)return res.status(400).json({ok:false,error:'change_reason_required'});
+      await putJson('tournaments/'+id+'.json',row,{overwrite:!!prev});
+      await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:prev?'TOURNAMENT_UPDATED':'TOURNAMENT_CREATED',entityType:'TOURNAMENT',entityId:id,before:prev,after:row,reason,createdAt:now()},{overwrite:false});
+      return res.status(prev?200:201).json({ok:true,tournament:row});
     }
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
@@ -46,31 +77,86 @@ export default async function handler(req,res){
       const u=await requireUser(req,res,['STAFF','ADMIN','CEO']);if(!u)return;
       const b=req.body||{},tournamentId=clean(b.tournamentId,80),discipline=clean(b.discipline,20),ageGroup=clean(b.ageGroup,30),belt=clean(b.belt,20),weightClass=clean(b.weightClass,40);
       if(!tournamentId||!discipline||!ageGroup||!belt||!weightClass)return res.status(400).json({ok:false,error:'required_fields'});
-      const id=makeId('div'),key=[discipline,ageGroup,belt,weightClass,Boolean(b.absolute)?'ABS':'WEIGHT'].join('|');
-      const row={id,tournamentId,key,discipline,ageGroup,belt,gender:clean(b.gender,20),weightClass,weightLimitKg:Number(b.weightLimitKg)||null,absolute:Boolean(b.absolute),active:true,createdBy:u.id,createdAt:now()};
-      await putJson('divisions/'+id+'.json',row,{overwrite:false});return res.status(201).json({ok:true,division:row});
+      const tournament=await getJson('tournaments/'+tournamentId+'.json');if(!tournament||tournament.deletedAt)return res.status(404).json({ok:false,error:'tournament_not_found'});
+      const previous=b.id?await getJson('divisions/'+clean(b.id,80)+'.json'):null;if(b.id&&(!previous||previous.tournamentId!==tournamentId))return res.status(404).json({ok:false,message:'참가 부문을 찾을 수 없습니다.'});if(previous&&b.revision!==(previous.revision||0))return res.status(409).json({ok:false,message:'참가 부문이 변경되었습니다. 새로고침해 주세요.'});const id=previous?.id||makeId('div'),key=[discipline,ageGroup,clean(b.gender,20),belt,weightClass,Boolean(b.absolute)?'ABS':'WEIGHT'].join('|');
+      const row={...previous,id,tournamentId,key,discipline,ageGroup,belt,capacity:b.capacity?Number(b.capacity):null,ageMin:b.ageMin!==undefined?Number(b.ageMin):null,ageMax:b.ageMax!==undefined?Number(b.ageMax):null,ageReferenceDate:clean(b.ageReferenceDate,10),gender:clean(b.gender,20),weightClass,weightLimitKg:Number(b.weightLimitKg)||null,absolute:Boolean(b.absolute),active:b.active!==false,revision:(previous?.revision||0)+1,createdBy:previous?.createdBy||u.id,createdAt:previous?.createdAt||now()};
+      const error=validateDivision(row);if(error)return res.status(400).json({ok:false,error});
+      if((await listJson('divisions/',1000,{tournamentId})).some(d=>d.id!==id&&d.key===key&&d.active!==false))return res.status(409).json({ok:false,error:'division_exists'});
+      const regs=await listJson('registrations/',1000,{tournamentId,divisionId:id});
+      if(previous){
+       if(!clean(b.reason,500))return res.status(400).json({ok:false,message:'수정 사유를 입력해 주세요.'});
+       const protectedKeys=['key','ageMin','ageMax','ageReferenceDate','weightLimitKg'];
+       if(regs.length&&protectedKeys.some(k=>JSON.stringify(row[k]??(k==='ageReferenceDate'?'':null))!==JSON.stringify(previous[k]??(k==='ageReferenceDate'?'':null))))return res.status(409).json({ok:false,message:'신청 기록이 있는 부문의 자격 조건은 변경할 수 없습니다. 새 부문을 등록해 주세요.'});
+       const active=regs.filter(r=>!['CANCELED','REFUNDED'].includes(r.status)).length;
+       if(active&&(!row.active||row.capacity!==null&&row.capacity<active))return res.status(409).json({ok:false,message:'현재 참가 인원보다 정원을 줄이거나 부문을 중지할 수 없습니다.'});
+       if((await listJson('brackets/',1000,{tournamentId,divisionKey:previous.key})).length)return res.status(409).json({ok:false,message:'대진이 생성된 부문은 수정할 수 없습니다.'});
+      }
+      await putJson('divisions/'+id+'.json',row,{overwrite:!!previous});
+      tournament.divisionRevision=(tournament.divisionRevision||0)+1;await putJson('tournaments/'+tournamentId+'.json',tournament);
+      await putJson('audit/'+makeId('aud')+'.json',{actorUserId:u.id,action:previous?'DIVISION_UPDATED':'DIVISION_CREATED',entityId:id,before:previous,after:row,reason:clean(b.reason,500),createdAt:now()},{overwrite:false});
+      return res.status(previous?200:201).json({ok:true,division:row});
     }
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
 
   if(op==='ranking'){
-    const events=await listJson('ranking-events/',10000);const sums=new Map();
-    for(const e of events){const k=e.athleteUserId;if(!k)continue;const x=sums.get(k)||{athleteUserId:k,points:0,wins:0,medals:0};x.points+=Number(e.finalPoints)||0;if(e.type==='WIN')x.wins++;if(['BRONZE','SILVER','GOLD','ABS_BRONZE','ABS_SILVER','ABS_GOLD'].includes(e.type))x.medals++;sums.set(k,x);}
-    const ranked=[...sums.values()].sort((a,b)=>b.points-a.points),rows=[];
-    for(const x of ranked){const p=await getJson('athletes/'+x.athleteUserId+'.json');if(!p?.publicProfile)continue;rows.push({...x,rank:rows.length+1,name:p.displayName,academy:p.academyName,belt:p.belt,weight:p.defaultWeightKg?String(p.defaultWeightKg)+'kg':''});}
-    return res.status(200).json({ok:true,season:'2027',ranking:rows});
+    const season=String(req.query.season||DEFAULT_SEASON);
+    if(!/^\d{4}$/.test(season))return res.status(400).json({ok:false,error:'invalid_season'});
+    const [events,tournaments]=await Promise.all([listJson('ranking-events/',10000),listJson('tournaments/',1000)]);
+    const visible=[];
+    for(const athleteId of new Set(events.map(e=>e.athleteUserId))){const profile=await getJson('athletes/'+athleteId+'.json');if(profile?.publicProfile)visible.push([athleteId,profile]);}
+    const profiles=new Map(visible);
+    const rows=seasonRanking(events.filter(e=>profiles.has(e.athleteUserId)),tournaments,season).map(x=>{const p=profiles.get(x.athleteUserId);return {...x,name:p.displayName,academy:p.academyName,belt:p.belt,weight:p.defaultWeightKg?String(p.defaultWeightKg)+'kg':''};});
+    const classified=rows.filter(x=>x.categoryKey.split('|').length===6);
+    const categories=[...new Set(classified.map(x=>x.categoryKey))];
+    const category=String(req.query.category||'');
+    return res.status(200).json({ok:true,season,categories,category,ranking:classified.filter(x=>x.categoryKey===category),unclassifiedCount:rows.length-classified.length});
   }
 
+  if(op==='sponsors')return res.status(200).json({ok:true,sponsors:(await listJson('sponsors/')).filter(r=>r.publicListing&&['CONTRACTED','ACTIVE','COMPLETED'].includes(r.status)).map(r=>({id:r.id,name:r.name,category:r.category}))});
   if(op==='content'){
     const rows=(await listJson('content/',3000)).filter(x=>x.status==='PUBLISHED').sort((a,b)=>String(b.publishedAt||'').localeCompare(String(a.publishedAt||''))).slice(0,100);
-    return res.status(200).json({ok:true,content:rows.map(({id,type,title,summary,coverUrl,publishedAt,athleteSocId,academyId})=>({id,type,title,summary,coverUrl,publishedAt,athleteSocId,academyId}))});
+    return res.status(200).json({ok:true,content:rows.map(({id,type,title,summary,body,videoUrl,coverUrl,publishedAt,athleteSocId,academyId})=>({id,type,title,summary,body,videoUrl,coverUrl,publishedAt,athleteSocId,academyId}))});
   }
 
   if(op==='verify-cert'){
     const code=clean(req.query.code,60);if(!code)return res.status(400).json({ok:false,error:'code_required'});
     const cert=await getJson('certificates/'+code+'.json');if(!cert)return res.status(404).json({ok:false,valid:false,error:'certificate_not_found'});
+    const tournament=await getJson('tournaments/'+cert.tournamentId+'.json');
+    if(cert.revokedAt||!tournament||tournament.status==='CANCELED')return res.status(409).json({ok:false,valid:false,error:'certificate_revoked',message:'결과 정정 또는 대회 취소로 재발급이 필요합니다.'});
     return res.status(200).json({ok:true,valid:true,certificate:cert});
   }
 
   return res.status(404).json({ok:false,error:'unknown_public_operation'});
 }
+
+export default apiHandler(handler, {
+  "business":["GET"],
+  "service-settings": ["GET"],
+  "brackets": ["GET"],
+  "health": [
+    "GET"
+  ],
+  "academies": [
+    "GET",
+    "POST"
+  ],
+  "tournaments": [
+    "GET",
+    "POST"
+  ],
+  "divisions": [
+    "GET",
+    "POST"
+  ],
+  "ranking": [
+    "GET"
+  ],
+  "sponsors": ["GET"],
+  "content": [
+    "GET"
+  ],
+  "verify-cert": [
+    "GET"
+  ]
+});

@@ -1,13 +1,25 @@
 {
   "name": "soc-one-platform",
   "private": true,
-  "version": "1.0.0-prelaunch",
+  "version": "1.0.1-prelaunch",
   "type": "module",
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "@vercel/blob": "^2.0.0",
+    "pg": "^8.23.1",
     "qrcode": "^1.5.4"
+  },
+  "scripts": {
+    "check": "node scripts/validate.mjs",
+    "test": "node --experimental-test-module-mocks --test tests/*.test.js",
+    "validate": "npm run check && npm test",
+    "test:browser": "node --experimental-test-module-mocks tests/browser-smoke.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
+    "@sparticuz/chromium": "^153.0.0",
+    "playwright": "^1.64.1"
   }
 }
