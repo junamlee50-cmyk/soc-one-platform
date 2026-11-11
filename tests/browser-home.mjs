@@ -6,6 +6,8 @@ export async function inspectHome({browser,base,demoLocal,errors}){
  const at=Date.now(),day=86400000,iso=offset=>new Date(at+offset).toISOString();
  const event={id:'home-session-fixture',name:'홈 갱신 시험 대회',status:'REGISTRATION_OPEN',startAt:iso(day*20),registrationOpenAt:iso(-day),registrationCloseAt:iso(day*10),fees:{regular:59000,additionalDiscipline:29000,absolute:25000},venueName:'가상 검수 경기장'};
  await demoLocal.query('INSERT INTO soc_records(path,value) VALUES($1,$2::jsonb)', ['tournaments/'+event.id+'.json',JSON.stringify(event)]);
+ const product={id:'home-product-fixture',kind:'product',title:'계정 전환 시험 상품',status:'OPEN',price:10000,capacity:3};
+ await demoLocal.query('INSERT INTO soc_records(path,value) VALUES($1,$2::jsonb)', ['business-programs/'+product.id+'.json',JSON.stringify(product)]);
  const login=async()=>{
   const footer=page.locator('footer');await footer.getByRole('combobox',{name:'시험 계정 선택'}).selectOption({label:'테스트 관장'});
   await footer.getByRole('button',{name:'테스트 관장 자동입력',exact:true}).click();await page.locator('#accountSubmit').click();await page.locator('#accountDialog').waitFor({state:'hidden'});
@@ -13,6 +15,13 @@ export async function inspectHome({browser,base,demoLocal,errors}){
  try{
   await page.goto(base+'/');await page.locator('#homeEvents .eventCard').first().waitFor();
   assert(!(await page.locator('#homeEvents').innerText()).includes(event.name));
+
+  await page.goto(base+'/gear.html');await page.locator('#businessTeasers').getByText('현재 공개된 공고·상품이 없습니다.',{exact:true}).waitFor();
+  await login();await page.locator('#businessTeasers').getByRole('link',{name:product.title+' · 10,000원',exact:true}).waitFor();
+  assert.equal(await page.locator('#businessTeasers .card').count(),1);
+  await page.getByRole('banner').getByRole('button',{name:'로그아웃',exact:true}).click();
+  await page.locator('#businessTeasers').getByText('현재 공개된 공고·상품이 없습니다.',{exact:true}).waitFor();
+  await page.goto(base+'/');await page.locator('#homeEvents .eventCard').first().waitFor();
   await login();await page.locator('#homeEvents').getByRole('heading',{name:event.name,exact:true}).waitFor();
   assert.match(await page.locator('#homeSeasonStatus').innerText(),/대회 접수 중/);
   await page.goto(base+'/competition.html');await page.locator('#eventGrid').getByRole('heading',{name:event.name,exact:true}).waitFor();
@@ -49,6 +58,6 @@ export async function inspectHome({browser,base,demoLocal,errors}){
   assert.match(await page.locator('#homeSeasonStatus').innerText(),/일정 확인 필요/);
   fail=false;await page.getByRole('button',{name:'대회 일정 다시 불러오기',exact:true}).click();await page.locator('#homeEvents .eventCard').nth(2).waitFor();
   assert.match(await page.locator('#homeSeasonStatus').innerText(),/대회 접수 중/);
-  console.log(JSON.stringify({homeReview:true,checks:['real demo login/logout refresh on home and competition','actual registration-window badges','upcoming events exclude past events','failed load and retry','mobile overflow'],testDataOnly:true}));
+  console.log(JSON.stringify({homeReview:true,checks:['real demo login/logout refresh on home, competition and business teasers','actual registration-window badges','upcoming events exclude past events','failed load and retry','mobile overflow'],testDataOnly:true}));
  }finally{await context.close();}
 }
