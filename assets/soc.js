@@ -20,7 +20,7 @@ SOC.logout=async function(){const result=await SOC.post('/api/auth/logout',{});i
  const allowed=u=>u?.roles?.some(r=>['STAFF','ADMIN','CEO'].includes(r));
  const views=[['tournaments','대회 일정','/admin?tab=tournaments'],['academies','도장 등록·승인','/admin?tab=academies'],['registrations','신청자·인원','/admin?tab=registrations'],['payments','입금·환불','/payments'],['operations','운영센터','/operations'],['business','지원·상품·훈련','/business?kind=support&view=admin'],['content','공지·콘텐츠','/admin?tab=content'],['field','현장 운영','/tournament-ops'],['settings','운영 설정','/service-settings'],['inquiries','문의 관리','/inquiries?view=admin']];
  let dialog,frame,opener,accessRevision=0;
- function close(){if(!dialog)return;if(dialog.open)dialog.close();frame?.remove();frame=null;document.documentElement.classList.remove('socAdminOpen');}
+ function close(){if(!dialog)return;const wasOpen=dialog.open;if(wasOpen)dialog.close();frame?.remove();frame=null;document.documentElement.classList.remove('socAdminOpen');if(wasOpen)document.dispatchEvent(new Event('soc:public-update'));}
  function selectView(key){
   const view=views.find(v=>v[0]===key)||views[0];
   dialog.querySelectorAll('[data-admin-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.adminView===view[0])));
@@ -62,6 +62,17 @@ SOC.servicePolicy=async()=>SOC.get('/api/public?op=service-settings');
 
 SOC.memberLabel=roles=>(roles||[]).filter(r=>r!=='MEMBER'||roles.length===1).map(r=>({ATHLETE:'선수·수련생',COACH:'관장·코치',ACADEMY_ADMIN:'도장 관리자',STAFF:'운영진',ADMIN:'관리자',CEO:'대표 관리자',FINANCE:'입금·정산 담당',REFEREE:'심판',COMMITTEE:'지역위원',MEMBER:'일반회원'}[r]||'회원')).join(' · ');
 SOC.beltLabel=value=>({WHITE:'화이트',BLUE:'블루',PURPLE:'퍼플',BROWN:'브라운',BLACK:'블랙',GREY:'그레이',YELLOW:'옐로',ORANGE:'오렌지',GREEN:'그린'}[value]||value||'미입력');
+
+// Display the actual registration window; the API independently validates entries.
+SOC.registrationState=function(event,at=Date.now()){
+ if(event.status==='COMPLETED')return {label:'대회 종료',open:false};
+ if(event.status==='CLOSED')return {label:'접수 마감',open:false};
+ if(event.status!=='REGISTRATION_OPEN')return {label:event.status==='COMING_SOON'?'접수 예정':'대회 안내',open:false};
+ const opens=Date.parse(event.registrationOpenAt),closes=Date.parse(event.registrationCloseAt);
+ if(Number.isFinite(closes)&&at>=closes)return {label:'접수 마감',open:false};
+ if(Number.isFinite(opens)&&at<opens)return {label:'접수 예정',open:false};
+ return {label:'접수 중',open:true};
+};
 
 SOC.demoReady=SOC.get('/api/auth?op=demo-access');
 SOC.mountDemoAccount=async function(container,fill){
