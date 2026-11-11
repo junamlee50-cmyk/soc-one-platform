@@ -42,7 +42,7 @@ async function handler(req,res){
     const idx=await getJson('user-email/'+hash(email)+'.json');if(!idx)return res.status(401).json({ok:false,error:'invalid_credentials'});
     const user=await getJson('users/'+idx.userId+'.json');if(!user||user.status!=='ACTIVE'||!verifyPassword(password,user.passwordSalt,user.passwordHash))return res.status(401).json({ok:false,error:'invalid_credentials'});
     if(user.mfaEnabled&&!(await verifyMfa(user,b.otp,b.recoveryCode)))return res.status(401).json({ok:false,error:'mfa_required',message:'인증 앱의 6자리 코드 또는 일회용 복구코드를 입력해 주세요.'});
-    await createSession(res,user,{mfaVerified:!!user.mfaEnabled});return res.status(200).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles}});
+    await createSession(res,user,{mfaVerified:!!user.mfaEnabled});return res.status(200).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles,demoAccount:!!user.demoAccount}});
   }
 
   if(op==='me'){

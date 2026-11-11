@@ -60,7 +60,7 @@ async function handler(req,res){
 
   if(op==='registrations'){
     const user=await requireUser(req,res);if(!user)return;
-    if(req.method==='GET'){const rows=await listJson('registrations/',3000,{userId:user.id});return res.status(200).json({ok:true,registrations:rows});}
+    if(req.method==='GET'){const rows=await listJson('registrations/',3000,{userId:user.id});const names=new Map(await Promise.all([...new Set(rows.map(x=>x.tournamentId))].map(async id=>[id,(await getJson('tournaments/'+id+'.json'))?.name])));return res.status(200).json({ok:true,registrations:rows.map(x=>({...x,tournamentName:names.get(x.tournamentId)||x.tournamentName||'대회 정보 확인 필요'}))});}
     if(req.method==='POST'){
       if(!user.emailVerifiedAt)return res.status(409).json({ok:false,error:'email_verification_required',message:'MY SOC에서 이메일 인증을 완료한 뒤 참가신청해 주세요.'});
       if(!(user.roles||[]).includes('ATHLETE'))return res.status(403).json({ok:false,error:'athlete_role_required'});

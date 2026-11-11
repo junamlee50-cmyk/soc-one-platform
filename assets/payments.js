@@ -1,13 +1,14 @@
 let paymentUser,registrationRows=[],settingsVersion=0,paymentLoad=0;
 const payStatus={UNPAID:'입금 대기',PENDING:'입금 신고 접수 · 운영자 확인 중',PAID:'입금 확인 완료',REFUND_REQUESTED:'환불 검토 중',REFUNDED:'환불 기록 완료',CANCELED:'신청 취소'};
 const paymentErrors={independent_payment_operator_required:'본인의 참가비는 다른 담당자가 대조해야 합니다.',invalid_batch_allocation:'신청 상태·금액이 변경되었습니다. 새로고침 후 다시 대조하세요.',batch_bank_mismatch:'서로 다른 계좌의 입금은 분리해서 처리해 주세요.',batch_total_mismatch:'신청별 참가비 합계와 은행 총입금액이 다릅니다.',refund_approval_required:'관리자·대표의 환불 검토 승인이 먼저 필요합니다.',independent_refund_executor_required:'승인자와 다른 담당자가 실제 송금 증빙을 기록해야 합니다.',refund_review_conflict:'본인 신청 또는 이미 승인된 환불은 검토할 수 없습니다.',refund_review_evidence_required:'정책·수취인 확인 증빙과 검토 사유를 입력해 주세요.',base_payment_required:'기본종목의 입금을 먼저 확인해 주세요.',dependent_registrations_active:'연결된 추가종목·앱솔루트 신청을 먼저 취소하거나 환불 처리해 주세요.',payment_amount_mismatch:'실제 확인액이 신청금액과 다릅니다. 차액을 확인해 주세요.',payment_evidence_already_used:'이미 다른 처리에 사용한 증빙번호입니다.',payment_revision_conflict:'다른 처리가 먼저 반영되었습니다. 새로고침 후 확인하세요.',legacy_payment_review_required:'이전 입금 기록의 원본 증빙 확인·이관이 필요합니다.',published_bracket_requires_correction:'대진 확정 이후에는 운영자에게 정정 절차를 요청해 주세요.',bank_transfer_not_configured:'운영진의 입금계좌 설정 전입니다.',payment_after_deadline:'입금 시각이 신청 기한 이후입니다. 운영진의 별도 확인이 필요합니다.',payment_deadline_passed:'입금 신고 기한이 지났습니다. 운영진에게 문의해 주세요.',mfa_setup_required:'계정 보안에서 관리자 추가인증을 먼저 등록해 주세요.'};
+const registrationPaymentLabel=r=>r.status==='CANCELED'?'신청 취소':(payStatus[r.paymentStatus]||SOC.label(r.paymentStatus));
 const paymentIsStaff=()=>paymentUser?.roles.some(r=>['STAFF','FINANCE','ADMIN','CEO'].includes(r));
 const selectedPayment=()=>registrationRows.find(r=>r.id===paymentRegistration.value);
 const kstDate=v=>v?new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'미정';
 const paymentError=d=>d.message||paymentErrors[d.error]||d.error||'처리 실패';
 function renderPayment(){
   const r=selectedPayment();paymentDetails.textContent='';paymentTicket.hidden=true;refundReviewPanel.hidden=true;if(!r)return;
-  const bank=r.bankTransfer;paymentDetails.textContent=['신청번호: '+r.id,'선수: '+r.athleteName,'참가비: '+SOC.money(r.amount),'상태: '+(payStatus[r.paymentStatus]||r.paymentStatus),r.refundedAmount!==undefined?'실제 환불: '+SOC.money(r.refundedAmount)+' / 공제: '+SOC.money(r.retainedAmount):'',r.amount===0?'입금 없이 운영 승인 대상':bank?'은행: '+bank.bankName+'\n계좌: '+bank.accountNumber+'\n예금주: '+bank.accountHolder+'\n입금 기한: '+kstDate(r.paymentDueAt)+'\n'+bank.instructions:'입금계좌 안내 준비 중입니다. 운영진에게 문의해 주세요.',r.refundApproval?'환불 검토: '+(r.refundApproval.status==='APPROVED'?(r.paymentStatus==='REFUNDED'?'승인 · 실제 지급 기록 완료':'승인 · 실제 지급 대기'):'반려')+' / '+r.refundApproval.reason:'',r.depositClaim?'입금 신고: '+r.depositClaim.depositorName+' / '+SOC.money(r.depositClaim.amount)+' / '+kstDate(r.depositClaim.occurredAt):''].filter(Boolean).join('\n');
+  const bank=r.bankTransfer;paymentDetails.textContent=['대회: '+(r.tournamentName||'대회 정보 확인 필요'),'신청번호: '+r.id,'선수: '+r.athleteName,'참가비: '+SOC.money(r.amount),'상태: '+registrationPaymentLabel(r),r.refundedAmount!==undefined?'실제 환불: '+SOC.money(r.refundedAmount)+' / 공제: '+SOC.money(r.retainedAmount):'',r.amount===0?'입금 없이 운영 승인 대상':bank?'은행: '+bank.bankName+'\n계좌: '+bank.accountNumber+'\n예금주: '+bank.accountHolder+'\n입금 기한: '+kstDate(r.paymentDueAt)+'\n'+bank.instructions:'입금계좌 안내 준비 중입니다. 운영진에게 문의해 주세요.',r.refundApproval?'환불 검토: '+(r.refundApproval.status==='APPROVED'?(r.paymentStatus==='REFUNDED'?'승인 · 실제 지급 기록 완료':'승인 · 실제 지급 대기'):'반려')+' / '+r.refundApproval.reason:'',r.depositClaim?'입금 신고: '+r.depositClaim.depositorName+' / '+SOC.money(r.depositClaim.amount)+' / '+kstDate(r.depositClaim.occurredAt):''].filter(Boolean).join('\n');
   refundReviewPanel.hidden=!paymentUser?.roles.some(x=>['ADMIN','CEO'].includes(x))||r.status!=='REGISTERED'||!['PAID','REFUND_REQUESTED'].includes(r.paymentStatus)||r.refundApproval?.status==='APPROVED';
   receiptForm.querySelector('option[value=REFUNDED]').disabled=r.refundApproval?.status!=='APPROVED'||r.refundApproval.reviewedBy===paymentUser?.id;
   if(receiptAction.selectedOptions[0]?.disabled)receiptAction.value='PAID';
@@ -17,10 +18,12 @@ function renderPayment(){
   cancelRegistration.disabled=r.paymentStatus!=='UNPAID'||r.status!=='REGISTERED';requestRefund.disabled=r.paymentStatus!=='PAID'||r.status!=='REGISTERED';
 }
 async function loadPayments(){
+  memberPayment.hidden=true;financePayment.hidden=true;paymentDetails.textContent='신청내역을 불러오고 있습니다.';
   const serial=++paymentLoad,previous=paymentRegistration.value||new URL(location.href).searchParams.get('registrationId');
   const d=await SOC.get(paymentIsStaff()?'/api/admin/registrations':'/api/registrations');if(serial!==paymentLoad)return;
-  if(!d.ok){paymentMsg.textContent=paymentError(d);return;}registrationRows=d.registrations;
-  paymentRegistration.replaceChildren();for(const r of registrationRows){const option=document.createElement('option');option.value=r.id;option.textContent=r.athleteName+' · '+r.discipline+' '+r.weightClass+' · '+(payStatus[r.paymentStatus]||r.paymentStatus);paymentRegistration.append(option);}
+  if(!d.ok){paymentMsg.textContent=paymentError(d);return;}registrationRows=d.registrations.map(r=>({...r,tournamentName:r.tournamentName||d.tournaments?.find(t=>t.id===r.tournamentId)?.name||'대회 정보 확인 필요'}));
+  memberPayment.hidden=paymentIsStaff()||!registrationRows.length;financePayment.hidden=!paymentIsStaff()||!registrationRows.length;
+  paymentRegistration.replaceChildren();for(const r of registrationRows){const option=document.createElement('option');option.value=r.id;option.textContent=r.tournamentName+' · '+r.athleteName+' · '+r.discipline+' '+r.weightClass+' · '+registrationPaymentLabel(r);paymentRegistration.append(option);}
   if(registrationRows.some(r=>r.id===previous))paymentRegistration.value=previous;renderPayment();
   if(!registrationRows.length)paymentDetails.textContent='참가신청 내역이 없습니다.';
   if(paymentIsStaff())await loadLedger();

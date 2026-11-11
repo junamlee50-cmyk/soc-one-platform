@@ -18,11 +18,11 @@ async function refreshAll(){
   if(request!==refreshId)return;
   const failure=[r,m,d,b].find(x=>!x.ok);if(failure){opsMsg.textContent=showError(failure)+' · 표시 자료를 갱신하지 못했습니다.';return;}
   regs=r.registrations;matches=m.matches;brackets=b.brackets;renderRegs();renderMatches();renderBrackets();
-  bracketDivision.innerHTML=d.divisions.map(x=>'<option value="'+esc(x.key)+'">'+esc([x.discipline,x.ageGroup,x.belt,x.weightClass,x.absolute?'앱솔루트':''].filter(Boolean).join(' · '))+'</option>').join('');
+  bracketDivision.innerHTML=d.divisions.map(x=>'<option value="'+esc(x.key)+'">'+esc([x.discipline,SOC.label(x.ageGroup),SOC.beltLabel(x.belt),x.weightClass,x.absolute?'앱솔루트':''].filter(Boolean).join(' · '))+'</option>').join('');
 }
 function renderRegs(){
-  weighReg.innerHTML=regs.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.athleteName+' · '+x.weightClass+' · '+x.paymentStatus)+'</option>').join('');
-  opsRegs.innerHTML=regs.map(x=>'<div class="dataRow"><span>'+esc(x.athleteName+' · '+x.discipline+' '+x.weightClass)+'<br><small>'+esc(x.paymentStatus+' · '+(x.checkInStatus||'NOT_CHECKED_IN'))+'</small></span><b>'+esc(x.weighInStatus||'NOT_WEIGHED')+'</b></div>').join('')||'<p>참가자가 없습니다.</p>';
+  weighReg.innerHTML=regs.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.athleteName+' · '+x.weightClass+' · '+SOC.label(x.paymentStatus))+'</option>').join('');
+  opsRegs.innerHTML=regs.map(x=>'<div class="dataRow"><span>'+esc(x.athleteName+' · '+x.discipline+' '+x.weightClass)+'<br><small>'+esc(SOC.label(x.paymentStatus)+' · '+SOC.label(x.checkInStatus||'NOT_CHECKED_IN'))+'</small></span><b>'+esc(SOC.label(x.weighInStatus||'NOT_WEIGHED'))+'</b></div>').join('')||'<p>참가자가 없습니다.</p>';
 }
 function actionButton(label,action){const button=document.createElement('button');button.className='btn';button.textContent=label;button.onclick=async()=>{button.disabled=true;try{await action();}finally{button.disabled=false;}};return button;}
 function renderMatches(){
@@ -47,7 +47,7 @@ function renderMatches(){
   if(!matches.length)opsMatches.textContent='대진이 없습니다.';updateWinner();
 }
 function renderBrackets(){
-  opsBrackets.replaceChildren();for(const b of brackets){const row=document.createElement('div');row.className='panel';const text=document.createElement('p');text.textContent=b.divisionKey+' · '+(b.publicVisible?'공개 중':'비공개');row.append(text,actionButton(b.publicVisible?'공개 중단':'대진 공개',async()=>{const reason=prompt('공개 설정 변경 사유');if(!reason)return;const d=await SOC.post('/api/operations/bracket-visibility',{bracketId:b.id,visible:!b.publicVisible,reason});opsMsg.textContent=d.ok?'공개 설정을 저장했습니다.':showError(d);if(d.ok)await refreshAll();}));opsBrackets.append(row);}
+  opsBrackets.replaceChildren();for(const b of brackets){const row=document.createElement('div');row.className='panel';const text=document.createElement('p');text.textContent=b.divisionKey.split('|').map(SOC.label).join(' · ')+' · '+(b.publicVisible?'공개 중':'비공개');row.append(text,actionButton(b.publicVisible?'공개 중단':'대진 공개',async()=>{const reason=prompt('공개 설정 변경 사유');if(!reason)return;const d=await SOC.post('/api/operations/bracket-visibility',{bracketId:b.id,visible:!b.publicVisible,reason});opsMsg.textContent=d.ok?'공개 설정을 저장했습니다.':showError(d);if(d.ok)await refreshAll();}));opsBrackets.append(row);}
 }
 matchSelect.addEventListener('change',updateWinner);
 function updateWinner(){const m=matches.find(x=>x.id===matchSelect.value);winnerSelect.innerHTML=m?[m.athleteA,m.athleteB].filter(Boolean).map(x=>'<option value="'+esc(x.userId)+'">'+esc(x.name)+'</option>').join(''):'';}
