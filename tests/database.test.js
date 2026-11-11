@@ -31,6 +31,7 @@ const publicApi=(await import('../api/public.js')).default;
 const {totp,decryptSecret}=await import('../lib/mfa.js');
 await query(await readFile(new URL('../db/migrations/001_operational_records.sql',import.meta.url),'utf8'));
 await query(await readFile(new URL('../db/migrations/002_manual_payments.sql',import.meta.url),'utf8'));
+await query(await readFile(new URL('../db/migrations/003_business_ledger.sql',import.meta.url),'utf8'));
 const seed=(path,value)=>putJson(path,value);
 const response=()=>({statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.statusCode=n;return this},json(body){this.body=body;return this},send(body){this.body=body;return this},end(){return this}});
 async function call(handler,op,userId,body={},method='POST',queryParams={}){
@@ -590,4 +591,148 @@ test('any active member can complete only their own athlete profile and retain t
  const user=await getJson('users/viewer.json');user.roles=['MEMBER'];await seed('users/viewer.json',user);
  const rows=(await call(member,'registrations','viewer',{},'GET')).body.registrations;assert.deepEqual(rows.map(x=>x.id),[reg.id]);assert.equal((await call(member,'registrations','coach',{},'GET')).body.registrations.length,0);
  assert.equal((await call(admin,'academy-status','viewer',{academyId:'not-owned',status:'APPROVED'})).statusCode,403);
+});
+
+async function businessFixture(kind='product',overrides={}){
+ await seed('system/bank-transfer.json',TEST_BANK);await person('buyer');await person('buyer2');await person('creator',['ADMIN']);await person('reviewer',['ADMIN']);await person('finance',['FINANCE']);await person('coach',['COACH']);
+ await seed('academies/host.json',{id:'host',name:'시험 개최 도장',status:'APPROVED',coachUserId:'coach',adminUserIds:['coach']});
+ const b={action:'SAVE_PROGRAM',kind,title:'격리 시험 '+kind,description:'Test',terms:'격리 시험용 이용 조건입니다. 실제 판매·지원·입금 자료가 아닙니다.',price:10000,capacity:4,startsAt:new Date(Date.now()+(kind==='training'?3600000:-3600000)).toISOString(),endsAt:new Date(Date.now()+7200000).toISOString(),academyId:'host',agreementReference:'TEST-AGREEMENT',hostFee:5000,budget:30000,perPersonLimit:20000,reason:'Test only',...overrides};
+ const saved=await call(admin,'business','creator',b);assert.equal(saved.statusCode,201,JSON.stringify(saved.body));
+ const p=saved.body.program;
+ if(kind!=='product')assert.equal((await call(admin,'business','creator',{kind,action:'OPEN_PROGRAM',id:p.id,revision:p.revision,reason:'self'})).statusCode,409);
+ const opened=await call(admin,'business',kind==='product'?'creator':'reviewer',{kind,action:'OPEN_PROGRAM',id:p.id,revision:p.revision,reason:'Independent test review'});assert.equal(opened.statusCode,200,JSON.stringify(opened.body));return opened.body.program;
+}
+async function businessApply(p,user='buyer',extra={}){return call(member,'business',user,{kind:p.kind,action:'APPLY',programId:p.id,programRevision:p.revision,quantity:1,delivery:'시험 수령인 / 01000000000 / 시험 배송지',evidence:'격리 시험 신청자료 https://youtu.be/dQw4w9WgXcQ',consent:true,...extra});}
+async function businessAction(r,action,user='finance',extra={},isAdmin=true){return call(isAdmin?admin:member,'business',user,{kind:r.kind,action,id:r.id,revision:r.revision,amount:r.amount,occurredAt:new Date().toISOString(),reference:'TEST-'+action+'-'+r.id,reason:'Isolated test only',...extra});}
+test('business product order, independent refund and immutable ledger preserve accepted terms',async()=>{
+ const p=await businessFixture(),applied=await businessApply(p);assert.equal(applied.statusCode,201);let r=applied.body.record;
+ assert.equal((await businessApply(p)).statusCode,409);
+ const reported=await businessAction(r,'REPORT_DEPOSIT','buyer',{depositorName:'테스트'},false);assert.equal(reported.statusCode,200);r=reported.body.record;
+ assert.equal((await businessAction(r,'CANCEL','buyer',{},false)).statusCode,409);
+ assert.equal((await listJson('business-ledger/')).length,0);
+ assert.equal((await businessAction(r,'CONFIRM_DEPOSIT','buyer')).statusCode,403);
+ assert.equal((await businessAction(r,'CONFIRM_DEPOSIT','finance',{amount:1})).statusCode,409);
+ const paid=await businessAction(r,'CONFIRM_DEPOSIT');assert.equal(paid.statusCode,200,JSON.stringify(paid.body));r=paid.body.record;
+ assert.equal((await businessAction(r,'CONFIRM_DEPOSIT')).statusCode,409);
+ const shipped=await businessAction(r,'SHIP','finance',{tracking:'시험 택배 / TRACK1'});assert.equal(shipped.statusCode,200);r=shipped.body.record;
+ r=(await businessAction(r,'REQUEST_REFUND','buyer',{},false)).body.record;
+ r=(await businessAction(r,'APPROVE_REFUND','reviewer',{amount:8000,contractReference:'TEST-POLICY-AND-RECIPIENT'})).body.record;
+ assert.equal((await businessAction(r,'REFUND','reviewer',{amount:8000})).statusCode,403);
+ assert.equal((await businessAction(r,'REFUND','finance',{amount:8000,occurredAt:'2000-01-01'})).statusCode,400);
+ r=(await businessAction(r,'REFUND','finance',{amount:8000,restock:false})).body.record;assert.equal(r.status,'REFUNDED');assert.equal(r.termsSnapshot,p.terms);assert.equal(r.amount,10000);
+ const rows=await listJson('business-ledger/');assert.equal(rows.length,2);assert.equal(rows.reduce((n,e)=>n+(e.direction==='IN'?e.amount:-e.amount),0),2000);
+ assert.equal((await getJson('business-programs/'+p.id+'.json')).capacity,3,'unreturned shipment is not restocked');
+ await assert.rejects(query("DELETE FROM soc_records WHERE collection='business-ledger'"),{code:'23514'});
+ await assert.rejects(query("UPDATE soc_records SET value=value||'{\"amount\":1}' WHERE collection='business-ledger'"),{code:'23514'});
+});
+test('business last unit, stale terms and separate member records are enforced concurrently',async()=>{
+ const p=await businessFixture('product',{capacity:1});assert.equal((await businessApply(p,'buyer',{programRevision:0})).statusCode,409);
+ const rs=await Promise.all([businessApply(p),businessApply(p,'buyer2')]);assert.deepEqual(rs.map(r=>r.statusCode).sort(),[201,409]);
+ const own=rs.find(r=>r.statusCode===201).body.record,other=own.userId==='buyer'?'buyer2':'buyer';
+ assert.equal((await businessAction(own,'CANCEL',other,{},false)).statusCode,403);
+ assert.equal((await call(member,'business',other,{},'GET',{kind:'product'})).body.records.length,0);
+ const pub=(await call(publicApi,'business',null,{},'GET',{kind:'product'})).body.programs[0];assert.equal(pub.available,0);assert.equal(pub.agreementReference,undefined);
+ assert.equal((await businessAction(own,'CANCEL',own.userId,{revision:0},false)).statusCode,409);
+ assert.equal((await businessAction(own,'CANCEL',own.userId,{},false)).statusCode,200);
+ assert.equal((await businessApply(p,other)).statusCode,201);
+});
+test('business and tournament receipts reject the same bank evidence in either direction',async()=>{
+ const p=await businessFixture();await fixture();const r=(await businessApply(p)).body.record,t=(await call(member,'registrations','a',{tournamentId:'t',divisionId:'d'})).body.registration;
+ assert.equal((await businessAction(r,'CONFIRM_DEPOSIT','finance',{reference:'shared-reference'})).statusCode,200);
+ assert.equal((await call(admin,'payment-status','staff',receipt(t,{reference:'SHARED-REFERENCE'}))).statusCode,409);
+ assert.equal((await call(admin,'payment-status','staff',receipt(t,{reference:'SECOND-REFERENCE'}))).statusCode,200);
+ const r2=(await businessApply(p,'buyer2')).body.record;assert.equal((await businessAction(r2,'CONFIRM_DEPOSIT','finance',{reference:'second-reference'})).statusCode,400);
+});
+test('business financial writes roll back with audit failure and can be retried once',async()=>{
+ const p=await businessFixture(),r=(await businessApply(p)).body.record;
+ await query("ALTER TABLE soc_records ADD CONSTRAINT test_fail_biz CHECK (collection <> 'audit' OR value->>'action' <> 'CONFIRM_DEPOSIT')");
+ try{assert.equal((await businessAction(r,'CONFIRM_DEPOSIT')).statusCode,503);}finally{await query('ALTER TABLE soc_records DROP CONSTRAINT test_fail_biz');}
+ assert.equal((await listJson('business-ledger/')).length,0);assert.equal((await getJson('business-records/'+r.id+'.json')).status,'UNPAID');
+ assert.equal((await businessAction(r,'CONFIRM_DEPOSIT')).statusCode,200);assert.equal((await listJson('business-ledger/')).length,1);
+});
+test('support and pro applications enforce budget, independent selection and actual partial payouts',async()=>{
+ for(const kind of ['support','pro']){
+ const p=await businessFixture(kind);let r=(await businessApply(p)).body.record,r2=(await businessApply(p,'buyer2')).body.record;
+ assert.equal((await businessAction(r,'REVIEW_APPLICATION','creator',{accept:true,amount:20000,contractReference:'CONTRACT'})).statusCode,403);
+ r=(await businessAction(r,'REVIEW_APPLICATION','reviewer',{accept:true,amount:20000,contractReference:'CONTRACT'})).body.record;assert.equal(r.status,'SELECTED');
+ assert.equal((await businessAction(r2,'REVIEW_APPLICATION','reviewer',{accept:true,amount:20000,contractReference:'CONTRACT2'})).statusCode,409);
+ assert.equal((await businessAction(r,'PAYOUT','reviewer',{amount:10000})).statusCode,403);
+ assert.equal((await businessAction(r,'PAYOUT','finance',{amount:20001})).statusCode,409);
+ r=(await businessAction(r,'PAYOUT','finance',{amount:10000})).body.record;assert.equal(r.status,'SELECTED');assert.equal(r.paidOut,10000);
+ assert.equal((await businessAction(r,'PAYOUT','finance',{amount:10000})).statusCode,400,'duplicate evidence');
+ r=(await businessAction(r,'PAYOUT','finance',{amount:10000,reference:'SECOND-'+r.id})).body.record;assert.equal(r.status,'PAID_OUT');
+ }
+});
+test('training booking, private host attendance and independent settlement complete in order',async()=>{
+ const p=await businessFixture('training');let r=(await businessApply(p)).body.record;
+ assert.equal((await businessAction(r,'ATTEND','reviewer')).statusCode,409);
+ r=(await businessAction(r,'CONFIRM_DEPOSIT')).body.record;
+ const host=(await call(member,'business','coach',{},'GET',{kind:'training',view:'host'})).body.records[0];assert.equal(host.id,r.id);assert.equal(host.bank,undefined);assert.equal(host.delivery,undefined);
+ await seed('business-programs/'+p.id+'.json',{...p,startsAt:new Date(Date.now()-10000).toISOString()});
+ const attended=await call(member,'business','coach',{kind:'training',action:'ATTEND',id:r.id,revision:r.revision,reason:'Isolated attendance'},'POST',{view:'host'});assert.equal(attended.statusCode,200,JSON.stringify(attended.body));r=attended.body.record;
+ r=(await businessAction(r,'APPROVE_SETTLEMENT','reviewer')).body.record;assert.equal(r.status,'SETTLEMENT_APPROVED');assert.equal(r.settlementAmount,5000);
+ assert.equal((await businessAction(r,'SETTLE','reviewer',{amount:5000})).statusCode,403);
+ r=(await businessAction(r,'SETTLE','finance',{amount:5000})).body.record;assert.equal(r.status,'SETTLED');
+ assert.equal((await businessApply(p,'buyer2')).statusCode,409,'cannot join after training starts');
+});
+test('business entry rejects unverified email, missing guardian consent and unopened window',async()=>{
+ const p=await businessFixture('support');let u=await getJson('users/buyer.json');await seed('users/buyer.json',{...u,emailVerifiedAt:null});assert.equal((await businessApply(p)).statusCode,409);await seed('users/buyer.json',u);
+ await seed('athletes/buyer.json',{userId:'buyer',birthDate:new Date(Date.now()-10*365.25*86400000).toISOString().slice(0,10)});assert.equal((await businessApply(p)).statusCode,409);
+ await seed('guardian-consents/buyer.json',{status:'VERIFIED'});assert.equal((await businessApply(p)).statusCode,201);
+ await seed('business-programs/'+p.id+'.json',{...p,startsAt:new Date(Date.now()+86400000).toISOString(),endsAt:new Date(Date.now()+172800000).toISOString()});assert.equal((await businessApply(p,'buyer2')).statusCode,409);
+});
+test('dojang rejection reason, owner-only resubmission and notification form a complete review cycle',async()=>{
+ await person('coach',['COACH']);await person('other',['COACH']);await person('admin',['ADMIN']);
+ let saved=await call(publicApi,'academies','coach',{name:'보완 시험 도장',region:'경남'});assert.equal(saved.statusCode,201,JSON.stringify(saved.body));let a=saved.body.academy;
+ assert.equal((await call(admin,'academy-status','admin',{academyId:a.id,status:'REJECTED',revision:a.revision})).statusCode,400);
+ saved=await call(admin,'academy-status','admin',{academyId:a.id,status:'REJECTED',revision:a.revision,reason:'주소 확인 필요'});assert.equal(saved.statusCode,200);a=saved.body.academy;
+ assert.equal((await call(publicApi,'academies','other',{id:a.id,revision:a.revision,name:a.name,region:a.region})).statusCode,404);
+ const resubmit=await call(publicApi,'academies','coach',{id:a.id,revision:a.revision,name:a.name,region:a.region,address:'시험 주소'});assert.equal(resubmit.statusCode,200,JSON.stringify(resubmit.body));a=resubmit.body.academy;assert.equal(a.status,'PENDING');
+ assert.equal((await call(admin,'academy-status','admin',{academyId:a.id,status:'APPROVED',revision:a.revision})).statusCode,200);
+ const notices=(await call(member,'notifications','coach',{},'GET')).body.notifications;assert.equal(notices.length,2);assert.equal((await call(member,'notifications','other',{},'GET')).body.notifications.length,0);
+});
+test('content editor preserves publication date, rejects stale edits and unsafe URLs, audits changes',async()=>{
+ await person('editor',['ADMIN']);await person('reader');
+ let saved=await call(admin,'content','editor',{title:'시험 소식',type:'VIDEO',status:'PUBLISHED',body:'시험 본문',videoUrl:'https://youtu.be/dQw4w9WgXcQ'});assert.equal(saved.statusCode,201,JSON.stringify(saved.body));const c=saved.body.content;
+ assert.equal((await call(admin,'content','reader',{id:c.id,revision:c.revision,title:'bad',status:'DRAFT'})).statusCode,403);
+ assert.equal((await call(admin,'content','editor',{...c,revision:0,reason:'stale'})).statusCode,409);
+ assert.equal((await call(admin,'content','editor',{...c,coverUrl:'javascript:alert(1)',reason:'bad'})).statusCode,400);
+ saved=await call(admin,'content','editor',{...c,title:'정정 소식',body:'정정 본문',reason:'본문 정정'});assert.equal(saved.statusCode,200);assert.equal(saved.body.content.publishedAt,c.publishedAt);
+ const publicRows=(await call(publicApi,'content',null,{},'GET')).body.content;assert.equal(publicRows[0].body,'정정 본문');assert.match(publicRows[0].videoUrl,/youtube/);
+});
+
+test('personnel evidence review, private visibility and independent allowance payment are enforced',async()=>{
+ await seed('system/bank-transfer.json',TEST_BANK);await person('ref',['REFEREE']);await person('other',['REFEREE']);await person('maker',['ADMIN']);await person('approver',['ADMIN']);await person('payer',['FINANCE']);
+ let d=await call(admin,'personnel','maker',{action:'CREATE',userId:'ref',type:'ALLOWANCE',title:'시험 심판 수당',date:'2026-01-01',amount:50000,basis:'TEST-CONTRACT-AND-ATTENDANCE',reason:'격리시험'});assert.equal(d.statusCode,201,JSON.stringify(d.body));let r=d.body.record;
+ assert.equal((await call(member,'personnel','other',{},'GET')).body.records.length,0);
+ d=await call(member,'personnel','ref',{action:'SUBMIT',id:r.id,revision:r.revision,evidence:'TEST-SHIFT',reason:'시험 출석 증빙'});assert.equal(d.statusCode,200);r=d.body.record;
+ assert.equal((await call(admin,'personnel','maker',{action:'APPROVE',id:r.id,revision:r.revision,reason:'self'})).statusCode,403);
+ d=await call(admin,'personnel','approver',{action:'APPROVE',id:r.id,revision:r.revision,reason:'독립 검토'});assert.equal(d.statusCode,200);r=d.body.record;
+ const pay={action:'PAY',id:r.id,revision:r.revision,amount:50000,occurredAt:new Date().toISOString(),reference:'TEST-REFEREE-TRANSFER',reason:'실제 거래 가정 시험'};
+ assert.equal((await call(admin,'personnel','approver',pay)).statusCode,403);
+ assert.equal((await call(admin,'personnel','payer',{...pay,amount:1})).statusCode,400);
+ d=await call(admin,'personnel','payer',pay);assert.equal(d.statusCode,200,JSON.stringify(d.body));assert.equal(d.body.record.status,'PAID');assert.equal((await call(admin,'personnel','payer',pay)).statusCode,409);
+ assert.equal((await listJson('business-ledger/'))[0].amount,50000);
+});
+test('sponsor edits require valid amounts, contract evidence, revisions and explicit public listing',async()=>{
+ await person('manager',['ADMIN']);await person('ordinary');
+ const body={name:'시험 파트너',category:'대회 후원',contractValue:10000,receivable:5000,status:'CONTRACTED',publicListing:true,reason:'시험',contractReference:'TEST-CONTRACT'};
+ assert.equal((await call(admin,'sponsors','ordinary',body)).statusCode,403);
+ assert.equal((await call(admin,'sponsors','manager',{...body,receivable:-1})).statusCode,400);
+ assert.equal((await call(admin,'sponsors','manager',{...body,contractReference:''})).statusCode,400);
+ let d=await call(admin,'sponsors','manager',body);assert.equal(d.statusCode,201);const r=d.body.sponsor;
+ assert.equal((await call(admin,'sponsors','manager',{...body,id:r.id,revision:0})).statusCode,409);
+ const pub=(await call(publicApi,'sponsors',null,{},'GET')).body.sponsors[0];assert.equal(pub.name,body.name);assert.equal(pub.contractValue,undefined);assert.equal(pub.contractReference,undefined);
+ d=await call(admin,'sponsors','manager',{...body,id:r.id,revision:r.revision,status:'CANCELED'});assert.equal(d.statusCode,200);assert.equal((await call(publicApi,'sponsors',null,{},'GET')).body.sponsors.length,0);
+});
+test('division edits preserve registered eligibility, enforce capacity and invalidate event approval',async()=>{
+ await fixture();await person('manager',['ADMIN']);const t=await getJson('tournaments/t.json'),d=await getJson('divisions/d.json');
+ const before=(await import('../lib/event-release.js')).eventFingerprint(t);
+ const created=await call(publicApi,'divisions','manager',{tournamentId:'t',discipline:'NO-GI',ageGroup:'ADULT',gender:'MALE',belt:'WHITE',weightClass:'-70',weightLimitKg:70,ageMin:18,ageMax:40,capacity:4});assert.equal(created.statusCode,201,JSON.stringify(created.body));
+ assert.notEqual((await import('../lib/event-release.js')).eventFingerprint(await getJson('tournaments/t.json')),before);
+ await call(member,'registrations','a',{tournamentId:'t',divisionId:'d'});
+ const changed=await call(publicApi,'divisions','manager',{...d,revision:0,weightLimitKg:60,reason:'bad change'});assert.equal(changed.statusCode,409,JSON.stringify(changed.body));
+ const capacity=await call(publicApi,'divisions','manager',{...d,revision:0,capacity:3,reason:'시험 정원 변경'});assert.equal(capacity.statusCode,200,JSON.stringify(capacity.body));
+ assert.equal((await call(publicApi,'divisions','manager',{...d,revision:0,capacity:4,reason:'stale'})).statusCode,409);
+ assert.equal((await getJson('registrations/'+(await listJson('registrations/'))[0].id+'.json')).amount,59000);
 });

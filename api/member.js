@@ -1,3 +1,5 @@
+import {personnel} from '../lib/personnel.js';
+import {business} from '../lib/business.js';
 import {memberProfile,resolveAffiliation,normalizeBirthDate} from '../lib/member-profile.js';
 import {memberHistory} from '../lib/member-history.js';
 import {currentBankSettings,validBankSettings,bankSnapshot,paymentDeadline,memberPaymentChange,paymentSummary} from '../lib/manual-payments.js';
@@ -16,6 +18,14 @@ import { ticketSign, signingKey } from '../lib/tickets.js';
 
 async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
+  if(op==='personnel'){const u=await requireUser(req,res,['REFEREE','COMMITTEE']);if(!u)return;return personnel(req,res,u);}
+  if(op==='business'){const u=await requireUser(req,res);if(!u)return;return business(req,res,u);}
+  if(op==='notifications'){
+   const u=await requireUser(req,res);if(!u)return;
+   if(req.method==='GET')return res.status(200).json({ok:true,notifications:(await listJson('notifications/',1000,{userId:u.id})).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))});
+   const n=await getJson('notifications/'+clean(req.body.id,80)+'.json');if(!n||n.userId!==u.id)return res.status(404).json({ok:false});n.readAt=now();await putJson('notifications/'+n.id+'.json',n);return res.status(200).json({ok:true});
+  }
+
   if(op==='inquiries'){
     const user=await requireUser(req,res);if(!user)return;
     return inquiries(req,res,user);
@@ -189,6 +199,8 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "business":["GET","POST"],
+  "notifications":["GET","POST"],
   "history": ["GET"],
   "registration-quote": ["GET"],
   "inquiries": ["GET","POST"],

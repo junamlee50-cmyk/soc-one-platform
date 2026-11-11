@@ -1,0 +1,5735 @@
+{
+  "generatedAt": "2026-11-11T00:20:03.068Z",
+  "source": "isolated Chromium; populated synthetic accounts; visible controls only; not proof of all mutations",
+  "results": [
+    {
+      "page": "academies.html",
+      "overflow": false,
+      "title": "도장·팀 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "내 도장 등록·관리",
+          "href": "/academy-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "academy-app.html",
+      "overflow": false,
+      "title": "Academy APP | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLACADEMY APP",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "내 선수정보·소속 도장",
+          "href": "/athlete-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "aName",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "aRegion",
+          "label": "예: 부산",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "aAddress",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "가입신청",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "academySelect",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": true
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 참가자·출석 관리",
+          "href": "/business.html?kind=training&view=host",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "admin.html",
+      "overflow": false,
+      "title": "SOC 운영 관리",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLADMIN",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "심판·위원 활동·수당",
+          "href": "/personnel.html?view=admin",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "통합 운영센터",
+          "href": "/operations.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "운영 설정",
+          "href": "/service-settings.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의 관리",
+          "href": "/inquiries.html?view=admin",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "도장 승인하기",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "대회 일정",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "도장 등록·승인",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "신청자·인원",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "회원",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "선수지원",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "훈련",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "심판",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "스폰서",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "미디어",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "감사",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "textarea",
+          "id": "tSummary",
+          "label": "대회 소개·안내",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tPoster",
+          "label": "대회 포스터 업로드 (PNG·JPEG·WebP, 750KB 이하)",
+          "href": null,
+          "type": "file",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "포스터 제거",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "경기 규정 검토·승인",
+          "href": "/rules-config.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tName",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "tLevel",
+          "label": "대회 구분",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "tRules",
+          "label": "규정 미확정test-v1FULL-JOURNEY-TEST",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tMultiplier",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tVenue",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tStart",
+          "label": "개최일시 (한국시간)",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tOpen",
+          "label": "접수 시작",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tEarly",
+          "label": "사전등록 종료 (선택)",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tClose",
+          "label": "최종 접수 종료",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "tStatus",
+          "label": "작성 중공개 예정접수 중공개마감종료취소",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "fEarly",
+          "label": "사전등록 참가비 (원)",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "fRegular",
+          "label": "일반등록 참가비 (원)",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "fExtra",
+          "label": "추가 GI·NO-GI 참가비 (원)",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "fAbsolute",
+          "label": "앱솔루트 참가비 (원)",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tDiscountCode",
+          "label": "EARLY2027",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tDiscountAmount",
+          "label": "",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "tDiscountKind",
+          "label": "모든 종목기본추가 GI·NO-GI앱솔루트",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tDiscountStart",
+          "label": "예: 202611101430",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tDiscountEnd",
+          "label": "예: 202611101430",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "tReason",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "대회 저장",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "새 대회 작성",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "설정 수정",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "접수 준비 확인",
+          "href": "/operations.html?event=summary-event#releaseEvents",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "삭제·보관",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "설정 수정",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "삭제·보관",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "설정 수정",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "삭제·보관",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "dTournament",
+          "label": "인원 집계 시험격리 브라우저 대회통합시험 대회",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "dDiscipline",
+          "label": "GINO-GI",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "dAge",
+          "label": "유소년청소년성인마스터",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "dBelt",
+          "label": "화이트블루퍼플브라운블랙",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "dGender",
+          "label": "남자여자",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "dWeight",
+          "label": "-76kg",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "dAgeMin",
+          "label": "",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "dAgeMax",
+          "label": "",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "dAgeDate",
+          "label": "예: 20261110",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "dCapacity",
+          "label": "",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "dLimit",
+          "label": "",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "dAbsolute",
+          "label": "앱솔루트",
+          "href": null,
+          "type": "checkbox",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "참가 부문 저장",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "새 부문 작성",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "dReason",
+          "label": "부문 수정 사유",
+          "href": null,
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "athlete-app.html",
+      "overflow": false,
+      "title": "선수정보 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLATHLETE APP",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "내 SOC · 경기기록",
+          "href": "/my-soc.html#myHistorySection",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "내 경기 영상",
+          "href": "/my-soc.html#myVideos",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 신청",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "프로필",
+          "href": "#profile",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회신청",
+          "href": "#regs",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "QR 참가증",
+          "href": "#ticket",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "커리어",
+          "href": "#career",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "pName",
+          "label": "이름",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "pBelt",
+          "label": "화이트블루퍼플브라운블랙",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "pBirth",
+          "label": "생년월일 (참가 자격 확인용)",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "pWeight",
+          "label": "",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "pGender",
+          "label": "미선택남성여성",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "pAcademy",
+          "label": "소속 도장",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "pPublic",
+          "label": "공개 랭킹·선수 프로필에 표시 동의",
+          "href": null,
+          "type": "checkbox",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "saveProfileButton",
+          "label": "프로필 저장 후 내 SOC로",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가·입상 기록과 경기 영상 보기",
+          "href": "/my-soc.html#myHistorySection",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "ticketReg",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "QR 표시",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 일정·참가 신청·내역",
+          "href": "/business.html?kind=training",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "business.html",
+      "overflow": false,
+      "title": "선수지원 신청 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "내 SOC",
+          "href": "/my-soc.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "상품 주문",
+          "href": "/business.html?kind=product",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "합동훈련",
+          "href": "/business.html?kind=training",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원 신청",
+          "href": "/business.html?kind=support",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "프로 초청매치 신청",
+          "href": "/business.html?kind=pro",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "businessReload",
+          "label": "새로고침",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "businessMode",
+          "label": "관리 화면",
+          "href": "/business.html?kind=support&view=admin",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "신청하기",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "businessSearch",
+          "label": "제목·신청번호 검색",
+          "href": null,
+          "type": "search",
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "ceo-app.html",
+      "overflow": false,
+      "title": "CEO APP | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLEXECUTIVE",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "통합 운영센터",
+          "href": "/operations.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "관리자 콘솔",
+          "href": "/admin.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회운영",
+          "href": "/tournament-ops.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "입금·환불 장부",
+          "href": "/payments.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "계정 보안",
+          "href": "/security.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "스폰서",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "certificate.html",
+      "overflow": false,
+      "title": "SOC 경기실적증명서",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/athlete-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "certTournament",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "발급",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "인쇄 / PDF 저장",
+          "href": null,
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "competition.html",
+      "overflow": false,
+      "title": "SOC Competition | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대진·경기 호출 확인",
+          "href": "/live.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "대회 등록·설정",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "접수 준비 확인",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "도장 등록·승인",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이 대회 참가신청",
+          "href": "#registerSection",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이 대회 참가신청",
+          "href": "#registerSection",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이메일 인증하기",
+          "href": "/my-soc.html#accountEmailForm",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "gear.html",
+      "overflow": false,
+      "title": "SOC GEAR | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "장비 지원안 보기 →",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "브라우저 시험 상품 · 12,000원",
+          "href": "/business.html?kind=product",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "상품 확인·주문 · 내 신청내역",
+          "href": "/business.html?kind=product",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "global.html",
+      "overflow": false,
+      "title": "훈련 교류 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "등급별 훈련 지원 보기 →",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "브라우저 합동훈련 · 12,000원",
+          "href": "/business.html?kind=training",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 일정·신청 · 내 신청내역",
+          "href": "/business.html?kind=training",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "index.html",
+      "overflow": false,
+      "title": "SOC · State of Control | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정 보기 ↗",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "일정 확인 →",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "전체 일정 보기 →",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 안내 보기 →",
+          "href": "/competition.html?tournamentId=trn_6dc2f06b-9670-4304-bedb-29ca61a4a8da",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 안내 보기 →",
+          "href": "/competition.html?tournamentId=trn_218fd880-caf2-40cc-91fd-1d52ceb642c6",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수정보 입력 →",
+          "href": "/athlete-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 확인 →",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "내 입금 내역 →",
+          "href": "/payments.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항 →",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "육성선수연 최대 50만원20명 선발 계획 · 세부 항목 보기 →",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "지원선수연 최대 150만원10명 선발 계획 · 세부 항목 보기 →",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "엘리트선수연 최대 400만원5명 선발 계획 · 세부 항목 보기 →",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "지원 금액·조건 자세히 보기 →",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "관장·코치 참여 안내 →",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "inquiries.html",
+      "overflow": false,
+      "title": "문의하기 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "inquiryCategory",
+          "label": "문의 유형",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "inquiryRegistration",
+          "label": "관련 신청번호 (선택)",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "inquirySubject",
+          "label": "제목",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "textarea",
+          "id": "inquiryBody",
+          "label": "내용",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "문의 접수",
+          "href": null,
+          "type": "submit",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "inquiryReload",
+          "label": "새로고침",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "live.html",
+      "overflow": false,
+      "title": "대진·경기 호출 | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLONE PLATFORM",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "liveTournament",
+          "label": "대회 선택",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "refreshLive",
+          "label": "새로고침",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정 보기",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "media.html",
+      "overflow": false,
+      "title": "SOC MEDIA | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "본문 보기",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "my-soc.html",
+      "overflow": false,
+      "title": "MY SOC | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLMY SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "logoutBtn",
+          "label": "로그아웃",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "계정 보안",
+          "href": "/security.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "내 경기 영상",
+          "href": "#myVideos",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "무통장입금 관리",
+          "href": "/payments.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수 APP",
+          "href": "/athlete-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "관장 APP",
+          "href": "/academy-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "지역위원 APP",
+          "href": "/region-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "심판 APP",
+          "href": "/referee-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회운영",
+          "href": "/tournament-ops.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "CEO APP",
+          "href": "/ceo-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "COMPETE대회대회 일정·참가신청·내 신청내역.",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "RANK랭킹공식 시즌 포인트와 전적.",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SUPPORT선수지원지원기준·후보·선발현황.",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가신청",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수정보 수정",
+          "href": "/athlete-app.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "이메일 인증·비밀번호 분실 복구",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "emailAction",
+          "label": "처리",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "recoveryEmail",
+          "label": "가입 이메일 (복구 시)",
+          "href": null,
+          "type": "email",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "emailCode",
+          "label": "이메일 인증 코드 8자리",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "recoveryPassword",
+          "label": "새 비밀번호 (복구 시, 12자 이상)",
+          "href": null,
+          "type": "password",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "recoveryOtp",
+          "label": "인증 앱 코드 (추가인증 계정)",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "recoveryBackup",
+          "label": "일회용 복구코드 (인증 앱 대신)",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "선택한 처리 실행",
+          "href": null,
+          "type": "submit",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원 신청내역",
+          "href": "/business.html?kind=support",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "상품 주문내역",
+          "href": "/business.html?kind=product",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 신청내역",
+          "href": "/business.html?kind=training",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "프로 매치 신청내역",
+          "href": "/business.html?kind=pro",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "offline.html",
+      "overflow": false,
+      "title": "SOC ONE Offline",
+      "controls": [],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "operations.html",
+      "overflow": false,
+      "title": "통합 운영센터 | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROL",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "MY SOC",
+          "href": "/my-soc.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "검토 요청 작성",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "검토 요청 작성",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "검토 요청 작성",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "guardianAthlete",
+          "label": "선수",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "guardianRelationship",
+          "label": "보호자 관계 확인 증빙번호",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "guardianEvidence",
+          "label": "동의 원본 증빙번호",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "guardianPolicy",
+          "label": "동의 문서 버전",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "guardianVerified",
+          "label": "관계와 동의 원본을 직접 확인했습니다",
+          "href": null,
+          "type": "checkbox",
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "guardianAction",
+          "label": "처리",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "guardianReason",
+          "label": "처리 사유",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "보호자 검증 저장",
+          "href": null,
+          "type": "submit",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P01 회원·선수 인증가입과 자격을 확인합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P02 도장·소속 변경도장과 지도자 권한, 이적 이력을 확인합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P03 대회 개최·접수 승인예산과 규정, 안전 준비를 검토합니다.1건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P04 입금 대조신고와 은행 거래를 대조합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P05 취소·환불승인과 실제 지급을 구분합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P06 현장 경기·정정경기 전후 일치 여부를 검수합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P07 랭킹·증명확정 결과와 산출 규정을 대조합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P08 선수지원확보 재원 안에서 선발·계약·지급을 검토합니다.1건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P09 훈련·호스트 정산협약부터 실제 이용과 정산까지 확인합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P10 상업사업 계약·이행프로·미디어·상품·스폰서 계약을 관리합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P11 지역위원 평가실제 활동과 승인 배점을 확인합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "P12 자금 마감·경영현금과 계약·수익을 분리해 마감합니다.0건 진행 중",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "statusFilter",
+          "label": "상태전체 상태작성 중보완 요청승인 대기승인 · 실행 대기실행 확인 완료취소기한 경과",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "workSearch",
+          "label": "검색",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "workReload",
+          "label": "새로고침",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "workNew",
+          "label": "새 업무 등록",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "통합시험 대회 개최 검토P03 · 승인 · 실행 대기 · 브라우저 시험 선수trn_218fd880-caf2-40cc-91fd-1d52ceb642c6 · 2027. 3. 1. 오전 9:00:00",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "브라우저 지원 검토P08 · 승인 대기 · 브라우저 시험 선수SOC-BROWSER · 2027. 2. 1. 오전 10:00:00",
+          "href": null,
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "payments.html",
+      "overflow": false,
+      "title": "무통장입금 관리 | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROL",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "MY SOC",
+          "href": "/my-soc.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "paymentRegistration",
+          "label": "참가신청 선택",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "reloadPayments",
+          "label": "새로고침",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "receiptAction",
+          "label": "처리",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "receiptAmount",
+          "label": "실제 확인액 (원)",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "receiptAt",
+          "label": "은행 거래 시각 (한국시간)",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "receiptReference",
+          "label": "은행 거래 증빙 관리번호",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "receiptReason",
+          "label": "처리 사유",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "대조한 거래 기록 저장",
+          "href": null,
+          "type": "submit",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "refundAmount",
+          "label": "승인 환불액 (원)",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "refundPolicy",
+          "label": "적용 정책·규정 관리번호",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "refundRecipient",
+          "label": "수취인 확인 증빙 관리번호 (전체 계좌번호 제외)",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "refundReason",
+          "label": "검토 사유",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "refundDecision",
+          "label": "판단",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "환불 검토 저장",
+          "href": null,
+          "type": "submit",
+          "disabled": false
+        },
+        {
+          "tag": "textarea",
+          "id": "batchRegistrations",
+          "label": "신청번호 (쉼표 또는 줄바꿈 구분)",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "batchAmount",
+          "label": "은행 총입금액 (원)",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "batchReference",
+          "label": "은행 거래 증빙번호",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "batchAt",
+          "label": "거래 시각 (한국시간)",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "batchReason",
+          "label": "대조 근거·처리 사유",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "합산입금 대조 저장",
+          "href": null,
+          "type": "submit",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "bankName",
+          "label": "은행명",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "bankNumber",
+          "label": "계좌번호",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "bankHolder",
+          "label": "예금주",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "bankHours",
+          "label": "신청 후 입금 기한 (시간)",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "textarea",
+          "id": "bankInstructions",
+          "label": "입금·문의 안내",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "bankReason",
+          "label": "변경 사유",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "bankEnabled",
+          "label": "신규 신청에 사용",
+          "href": null,
+          "type": "checkbox",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "입금계좌 설정 저장",
+          "href": null,
+          "type": "submit",
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "personnel.html",
+      "overflow": false,
+      "title": "교육·활동·평가·수당 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "내 SOC",
+          "href": "/my-soc.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "reloadRecords",
+          "label": "새로고침",
+          "href": null,
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "privacy-preview.html",
+      "overflow": false,
+      "title": "운영 안내 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보처리방침",
+          "href": "?document=privacy",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "?document=refund",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "pro.html",
+      "overflow": false,
+      "title": "SOC PRO | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "프로 매치 관심 등록",
+          "href": "/support.html#supportInterest",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "출전 지원안 보기",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "브라우저 프로 초청 모집 · 모집 중",
+          "href": "/business.html?kind=pro",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "프로 매치 모집·신청 · 내 신청내역",
+          "href": "/business.html?kind=pro",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "ranking.html",
+      "overflow": false,
+      "title": "SOC Ranking | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "rankCategory",
+          "label": "랭킹 부문",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": [
+          {
+            "tag": "TABLE",
+            "id": "",
+            "class": "table"
+          },
+          {
+            "tag": "THEAD",
+            "id": "",
+            "class": ""
+          },
+          {
+            "tag": "TR",
+            "id": "",
+            "class": ""
+          },
+          {
+            "tag": "TH",
+            "id": "",
+            "class": ""
+          },
+          {
+            "tag": "TH",
+            "id": "",
+            "class": ""
+          },
+          {
+            "tag": "TH",
+            "id": "",
+            "class": ""
+          },
+          {
+            "tag": "TH",
+            "id": "",
+            "class": ""
+          }
+        ]
+      }
+    },
+    {
+      "page": "referee-app.html",
+      "overflow": false,
+      "title": "심판 배정과 경기 기록",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLONE PLATFORM",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "교육·활동·평가·수당",
+          "href": "/personnel.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회운영 화면",
+          "href": "/tournament-ops.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "경기규정",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "region-app.html",
+      "overflow": false,
+      "title": "Regional Committee | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLMY REGION",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "교육·활동·평가·수당",
+          "href": "/personnel.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "평가 기준",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "rules-config.html",
+      "overflow": false,
+      "title": "경기 규정 설정 | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/admin.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "관리자 화면",
+          "href": "/admin.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "version",
+          "label": "규정 버전 이름",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": true
+        },
+        {
+          "tag": "input",
+          "id": "rule-participation",
+          "label": "출전 점수 (최대 6회)",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-win",
+          "label": "실제 경기 승리 점수",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-GOLD",
+          "label": "금메달",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-SILVER",
+          "label": "은메달",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-BRONZE",
+          "label": "동메달",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-ABS_GOLD",
+          "label": "앱솔루트 금",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-ABS_SILVER",
+          "label": "앱솔루트 은",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-ABS_BRONZE",
+          "label": "앱솔루트 동",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-one",
+          "label": "1명 부문 보정",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-two",
+          "label": "2명 부문 보정",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-three",
+          "label": "3명 부문 보정",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-four",
+          "label": "4명 부문 보정",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-fiveToEight",
+          "label": "5~8명 부문 보정",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "rule-ninePlus",
+          "label": "9명 이상 부문 보정",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "textarea",
+          "id": "reason",
+          "label": "승인 근거·변경 사유",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "ack",
+          "label": "경기점수와 모든 참가인원별 보정값을 확인했으며 이 버전을 승인합니다.",
+          "href": null,
+          "type": "checkbox",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "draft",
+          "label": "검토안 저장",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "approve",
+          "label": "규정 승인",
+          "href": null,
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "rules.html",
+      "overflow": false,
+      "title": "참가 전 확인사항 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "1. 연령·벨트·체급 확인",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "2. 계체 시간·복장",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "3. 경기시간·허용 기술",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "4. 참가비·입금 확인",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "5. 취소·환불",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "6. 랭킹·선수지원",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "지원 기준 자세히 보기 →",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "security.html",
+      "overflow": false,
+      "title": "계정 보안 | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "MY SOC",
+          "href": "/my-soc.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "currentPassword",
+          "label": "현재 비밀번호",
+          "href": null,
+          "type": "password",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "newPassword",
+          "label": "새 비밀번호 (12자 이상)",
+          "href": null,
+          "type": "password",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "passwordOtp",
+          "label": "추가인증 코드 (등록한 경우)",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "비밀번호 변경",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "logoutAll",
+          "label": "현재 기기를 포함해 모두 로그아웃",
+          "href": null,
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "service-settings.html",
+      "overflow": false,
+      "title": "운영 설정 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "관리자",
+          "href": "/admin.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "입금계좌 설정",
+          "href": "/payments.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 개시 점검",
+          "href": "/operations.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "추가인증 설정",
+          "href": "/security.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "service_operatorName",
+          "label": "운영 주체명",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "service_representative",
+          "label": "대표자",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "service_contactEmail",
+          "label": "고객 문의 이메일",
+          "href": null,
+          "type": "email",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "service_contactPhone",
+          "label": "고객 문의 전화번호",
+          "href": null,
+          "type": "tel",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "service_address",
+          "label": "사업장 주소",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "service_privacyOfficer",
+          "label": "개인정보 보호 담당자",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "service_policyVersion",
+          "label": "약관 버전 (예: 2026-11-v1)",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "service_effectiveDate",
+          "label": "시행일",
+          "href": null,
+          "type": "text",
+          "disabled": false
+        },
+        {
+          "tag": "textarea",
+          "id": "service_privacyText",
+          "label": "개인정보처리방침",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "textarea",
+          "id": "service_termsText",
+          "label": "이용약관",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "textarea",
+          "id": "service_refundText",
+          "label": "기본 취소·환불 안내",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "serviceReason",
+          "label": "변경 사유",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "초안 저장",
+          "href": null,
+          "type": "submit",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "policyReviewed",
+          "label": "운영정보와 약관 내용을 확인했습니다.",
+          "href": null,
+          "type": "checkbox",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "publishPolicy",
+          "label": "저장된 약관 공개",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "공개 내용 확인",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "openRegistration",
+          "label": "회원가입 개시",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "pauseRegistration",
+          "label": "신규 회원가입 일시중지",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "setup.html",
+      "overflow": false,
+      "title": "SOC ONE 최초 설정",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLONE PLATFORM",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "name",
+          "label": "대표이사 성명",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "email",
+          "label": "대표자 이메일",
+          "href": null,
+          "type": "email",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "password",
+          "label": "12자 이상",
+          "href": null,
+          "type": "password",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "password2",
+          "label": "비밀번호 재입력",
+          "href": null,
+          "type": "password",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "submit",
+          "label": "최고관리자 계정 생성",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "sponsors.html",
+      "overflow": false,
+      "title": "파트너 안내 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "후원·제휴 문의",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "support.html",
+      "overflow": false,
+      "title": "선수지원 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이 등급 사전등록",
+          "href": "#supportInterest",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이 등급 사전등록",
+          "href": "#supportInterest",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이 등급 사전등록",
+          "href": "#supportInterest",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO 안내 →",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "supSeason",
+          "label": "시즌",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "supTier",
+          "label": "관심 등급",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "지원 사전등록하기",
+          "href": null,
+          "type": "submit",
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "가입하면 누구나 지원받나요?",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "지원금 전액을 현금으로 받나요?",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "팀을 옮겨야 하나요?",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "label": "대회에서 우승하면 자동으로 선발되나요?",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "브라우저 선수지원 모집 · 모집 중",
+          "href": "/business.html?kind=support",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "정식 모집공고·신청 · 내 신청내역",
+          "href": "/business.html?kind=support",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "talent.html",
+      "overflow": false,
+      "title": "선수 활동 | SOC",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC 홈",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "내 SOC",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "로그아웃",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "socAdminButton",
+          "label": "관리자",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "메뉴 열기",
+          "href": null,
+          "type": "button",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수 활동·협업 제안",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "대회 일정·참가",
+          "href": "/competition.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "시즌 랭킹",
+          "href": "/ranking.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "선수지원",
+          "href": "/support.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "참가 전 확인사항",
+          "href": "/rules.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "도장·팀",
+          "href": "/academies.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "매트 이야기",
+          "href": "/media.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC PRO",
+          "href": "/pro.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOC GEAR",
+          "href": "/gear.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "파트너 안내",
+          "href": "/sponsors.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "훈련 교류",
+          "href": "/global.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "개인정보 처리 안내",
+          "href": "/privacy-preview.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "문의하기",
+          "href": "/inquiries.html",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "이용약관",
+          "href": "/privacy-preview.html?document=terms",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "취소·환불 안내",
+          "href": "/privacy-preview.html?document=refund",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "tournament-ops.html",
+      "overflow": false,
+      "title": "Tournament Ops | SOC ONE",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLTOURNAMENT OPS",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "opTournament",
+          "label": "인원 집계 시험통합시험 대회격리 브라우저 대회",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "새로고침",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "QR 카메라",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "qrPayload",
+          "label": "SOC:reg_xxx:signature",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "체크인 처리",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "카메라 종료",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "weighReg",
+          "label": "동명이인 · undefined · PAID동명이인 · undefined · UNPAID동명이인 · undefined · PAID동명이인 · undefined · UNPAID동명이인 · undefined · REFUNDED",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "weighKg",
+          "label": "",
+          "href": null,
+          "type": "number",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "계체 저장",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "bracketDivision",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "대진 생성",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "matchSelect",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "winnerSelect",
+          "label": "",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "select",
+          "id": "winMethod",
+          "label": "포인트 승서브미션 승심판 판정 승실격 승",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "결과 저장",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "공개 대진·호출 현황",
+          "href": "/live.html",
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    },
+    {
+      "page": "verify.html",
+      "overflow": false,
+      "title": "SOC 기록 검증",
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "label": "SOCSTATE OF CONTROLVERIFY",
+          "href": "/",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "id": "code",
+          "label": "검증코드",
+          "href": null,
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "label": "검증",
+          "href": null,
+          "type": null,
+          "disabled": false
+        }
+      ],
+      "mobile": {
+        "overflow": false,
+        "wide": []
+      }
+    }
+  ]
+}

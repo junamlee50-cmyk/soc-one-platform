@@ -1,4 +1,4 @@
-import {demoAccess,ensureDemoAccount,DEMO_EMAIL} from '../lib/demo-account.js';
+import {demoAccess,ensureDemoAccount,isDemoEmail} from '../lib/demo-account.js';
 import {accountEmail} from '../lib/account-email.js';
 import {requireRegistrationPolicy} from '../lib/service-settings.js';
 import crypto from 'node:crypto';
@@ -18,16 +18,16 @@ async function handler(req,res){
   if(op==='register'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
     const b=req.body||{}; const name=clean(b.name,80),email=clean(b.email,255).toLowerCase(),password=typeof b.password==='string'?b.password:'',requestedRole=clean(b.role,20).toUpperCase(),consent=b.consent===true;
-    if(email===DEMO_EMAIL)return res.status(400).json({ok:false,error:'reserved_test_email'});
+    if(isDemoEmail(email))return res.status(400).json({ok:false,error:'reserved_test_email'});
     if(!name||!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return res.status(400).json({ok:false,error:'invalid_profile'});
     if(password.length<10||password.length>256)return res.status(400).json({ok:false,error:'weak_password',message:'비밀번호는 10자 이상이어야 합니다.'});
     if(!consent)return res.status(400).json({ok:false,error:'consent_required'});
     const policy=await requireRegistrationPolicy(b);
     if(policy.error)return res.status(409).json({ok:false,...policy});
-    const role=requestedRole==='COACH'?'COACH':'ATHLETE',emailKey=hash(email);
+    const role=['COACH','MEMBER'].includes(requestedRole)?requestedRole:'ATHLETE',emailKey=hash(email);
     if(await getJson('user-email/'+emailKey+'.json'))return res.status(409).json({ok:false,error:'email_exists'});
     const id=makeId('usr'),ph=passwordHash(password);
-    const user={id,socId:makeSocId(),name,email,emailKey,roles:[role,'MEMBER'],passwordSalt:ph.salt,passwordHash:ph.hash,status:'ACTIVE',countryCode:'KR',locale:'ko-KR',consentAt:now(),createdAt:now(),updatedAt:now()};
+    const user={id,socId:makeSocId(),name,email,emailKey,roles:[...new Set([role,'MEMBER'])],passwordSalt:ph.salt,passwordHash:ph.hash,status:'ACTIVE',countryCode:'KR',locale:'ko-KR',consentAt:now(),createdAt:now(),updatedAt:now()};
     user.policyConsent={policyId:policy.policyId,policyVersion:policy.policyVersion,privacyConsent:consent,termsConsent:b.termsConsent===true,acceptedAt:user.consentAt};
     await putJson('users/'+id+'.json',user,{overwrite:false});await putJson('user-email/'+emailKey+'.json',{userId:id,emailKey,createdAt:now()},{overwrite:false});await createSession(res,user);
     return res.status(201).json({ok:true,user:{id:user.id,socId:user.socId,name:user.name,email:user.email,roles:user.roles}});
@@ -37,8 +37,8 @@ async function handler(req,res){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
     const b=req.body||{},email=clean(b.email,255).toLowerCase(),password=typeof b.password==='string'?b.password:'';
     if(password.length>256)return res.status(400).json({ok:false,error:'invalid_credentials'});
-    if(email===DEMO_EMAIL&&!isDemoTransaction())return res.status(401).json({ok:false,error:'invalid_credentials'});
-    if(email===DEMO_EMAIL)await ensureDemoAccount(password);
+    if(isDemoEmail(email)&&!isDemoTransaction())return res.status(401).json({ok:false,error:'invalid_credentials'});
+    if(isDemoEmail(email))await ensureDemoAccount(password,email);
     const idx=await getJson('user-email/'+hash(email)+'.json');if(!idx)return res.status(401).json({ok:false,error:'invalid_credentials'});
     const user=await getJson('users/'+idx.userId+'.json');if(!user||user.status!=='ACTIVE'||!verifyPassword(password,user.passwordSalt,user.passwordHash))return res.status(401).json({ok:false,error:'invalid_credentials'});
     if(user.mfaEnabled&&!(await verifyMfa(user,b.otp,b.recoveryCode)))return res.status(401).json({ok:false,error:'mfa_required',message:'인증 앱의 6자리 코드 또는 일회용 복구코드를 입력해 주세요.'});

@@ -18,7 +18,8 @@ process.env.SOC_MFA_ENCRYPTION_KEY='ef'.repeat(32);process.env.SOC_DATA_BACKEND=
 const {query}=await import('../lib/database.js');
 await query(await readFile('db/migrations/001_operational_records.sql','utf8'));
 await query(await readFile(new URL('../db/migrations/002_manual_payments.sql',import.meta.url),'utf8'));
-for(const file of ['001_operational_records.sql','002_manual_payments.sql'])await demoLocal.exec(await readFile('db/migrations/'+file,'utf8'));
+await query(await readFile(new URL('../db/migrations/003_business_ledger.sql',import.meta.url),'utf8'));
+for(const file of ['001_operational_records.sql','002_manual_payments.sql','003_business_ledger.sql'])await demoLocal.exec(await readFile('db/migrations/'+file,'utf8'));
 await demoLocal.query("INSERT INTO soc_records(path,value) VALUES('system/demo-environment.json','{\"isolated\":true}')");
 const handlers=Object.fromEntries(await Promise.all(['auth','auth/bootstrap','public','admin','member','ops'].map(async f=>[f,(await import('../api/'+f+'.js')).default])));
 const config=JSON.parse(await readFile('vercel.json','utf8'));
@@ -77,7 +78,7 @@ try{
  await desktop.reload();await desktop.locator('#tList').getByRole('button',{name:'설정 수정',exact:true}).first().click();
  for(const [id,value]of [['fEarly','51000'],['fRegular','61000'],['fExtra','31000'],['fAbsolute','27000'],['tEarly','2026-11-05 00:00'],['tStart','2027-03-01 10:00']])assert.equal(await desktop.locator('#'+id).inputValue(),value);
  await desktop.setViewportSize({width:390,height:844});assert(await desktop.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'admin fee mobile overflow');await desktop.setViewportSize({width:1365,height:900});
- await desktop.locator('#dWeight').fill('-70kg');await desktop.locator('#dLimit').fill('70');await desktop.locator('#dAge').selectOption('ADULT');await desktop.getByRole('button',{name:'디비전 생성'}).click();await desktop.waitForFunction(()=>document.getElementById('dMsg').textContent==='생성 완료');
+ await desktop.locator('#dWeight').fill('-70kg');await desktop.locator('#dLimit').fill('70');await desktop.locator('#dAge').selectOption('ADULT');await desktop.getByRole('button',{name:'참가 부문 저장'}).click();await desktop.waitForFunction(()=>document.getElementById('dMsg').textContent==='생성 완료');
  await desktop.getByRole('link',{name:'경기 규정 검토·승인'}).click();await desktop.locator('#version').waitFor();await desktop.locator('#reason').fill('격리 시험 검토안');await desktop.getByRole('button',{name:'검토안 저장'}).click();await desktop.waitForFunction(()=>document.getElementById('msg').textContent==='검토안을 저장했습니다.');
  // Match fixtures stay inside the isolated test DB; exercise real UI buttons.
  const seed=async(path,value)=>query('INSERT INTO soc_records(path,value) VALUES ($1,$2::jsonb) ON CONFLICT(path) DO UPDATE SET value=excluded.value',[path,JSON.stringify(value)]);
@@ -173,7 +174,9 @@ try{
  await desktop.goto(base+'/payments.html');await typeCalendar(desktop,'batchAt','202611101430');
  await desktop.goto(base+'/service-settings.html');await typeCalendar(desktop,'service_effectiveDate','20261110');
  await desktop.goto(base+'/operations.html');await desktop.locator('#workList button').filter({hasText:'브라우저 지원 검토'}).click();await typeCalendar(desktop,'editDue','202703011200');
- await desktop.goto(base+'/athlete-app.html');await typeCalendar(desktop,'trDate','20261110');assert.equal(await desktop.locator('input[type="date"],input[type="datetime-local"]').count(),0);
+ await desktop.goto(base+'/athlete-app.html');assert.equal(await desktop.locator('input[type="date"],input[type="datetime-local"]').count(),0);
+ const {businessJourney}=await import('./browser-business.mjs');await businessJourney({browser,base,admin:desktop,query,errors,typeCalendar});
+ const {inspectPages}=await import('./browser-inventory.mjs');await inspectPages({page:desktop,base,query});
  // Install SW, inspect sensitive cache exclusion and offline save feedback.
  await page.goto(base+'/athlete-app.html'); // logged out, route redirects to login
  await page.goto(base+'/ranking.html');await page.getByRole('heading',{name:'부문별 랭킹',exact:true}).waitFor();await page.getByRole('heading',{name:'랭킹 점수 산정',exact:true}).waitFor();await page.getByRole('heading',{name:'경기 결과 반영',exact:true}).waitFor();await page.evaluate(async()=>{await navigator.serviceWorker.ready;});

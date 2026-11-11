@@ -54,7 +54,7 @@ async function loadRelease(){
  const d=await SOC.get('/api/admin?op=event-release');releaseEventList.replaceChildren();if(!d.ok){releaseEventList.textContent='점검 내역을 불러오지 못했습니다.';return;}
  for(const e of d.events){const box=el('div',undefined,'panel');box.append(el('h3',e.name),el('p','대회 ID: '+e.tournamentId),el('p',e.ready?'설정·독립 검토 승인 확인 완료':e.blockers.join(' / ')));
   if(e.ready&&['DRAFT','COMING_SOON','CLOSED'].includes(e.status)&&workData.canApprove){const reason=el('input');reason.placeholder='접수 개시 사유';reason.setAttribute('aria-label','접수 개시 사유');const b=el('button','대회 접수 개시','btn gold');b.onclick=async()=>{b.disabled=true;try{const result=await SOC.post('/api/admin?op=event-release',{tournamentId:e.tournamentId,reason:reason.value});workStatus.textContent=result.ok?'접수를 개시했습니다.':(result.blockers||[result.error]).join(' / ');await loadRelease();}finally{b.disabled=false;}};box.append(reason,b);}
-  releaseEventList.append(box);
+  const review=el('button','검토 요청 작성','btn');review.onclick=()=>prepareEventReview(e);box.append(review);releaseEventList.append(box);
  }
 }
 
@@ -67,3 +67,6 @@ async function loadGuardians(){
 function showGuardian(){const c=guardianData.find(c=>c.athleteUserId===guardianAthlete.value);guardianState.textContent=!c?'검증 기록 없음':c.status==='VERIFIED'?'보호자 동의 검증 기록 있음':'동의 철회 상태';}
 guardianAthlete.onchange=showGuardian;
 guardianForm.onsubmit=async e=>{e.preventDefault();const c=guardianData.find(c=>c.athleteUserId===guardianAthlete.value);e.submitter.disabled=true;try{const d=await SOC.post('/api/admin?op=guardian-review',{athleteUserId:guardianAthlete.value,revision:c?.revision||0,action:guardianAction.value,relationshipReference:guardianRelationship.value,consentReference:guardianEvidence.value,policyVersion:guardianPolicy.value,verifiedInPerson:guardianVerified.checked,reason:guardianReason.value});workStatus.textContent=d.ok?'보호자 검증 기록을 저장했습니다.':d.error;await loadGuardians();}finally{e.submitter.disabled=false;}};
+
+const eventToReview=new URLSearchParams(location.search).get('event');
+function prepareEventReview(event){createPanel.hidden=false;workProcess.value='P03';workTitle.value=event.name+' 접수 개시 검토';workTarget.value=event.tournamentId;workDue.value=SOCDate.toInput(new Date(Date.now()+86400000).toISOString());workReason.value='대회 설정과 운영 준비 검토 요청';createPanel.scrollIntoView({block:'start'});}

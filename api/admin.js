@@ -1,3 +1,8 @@
+import {saveSponsor} from '../lib/sponsors.js';
+import {personnel} from '../lib/personnel.js';
+import {saveContent} from '../lib/content-management.js';
+import {business} from '../lib/business.js';
+import {reviewAcademy} from '../lib/academy-review.js';
 import {registrationSummary} from '../lib/registration-summary.js';
 import {serviceSettings} from '../lib/service-settings.js';
 import {inquiries} from '../lib/inquiries.js';
@@ -15,6 +20,9 @@ import { requireUser } from '../lib/auth.js';
 
 async function handler(req,res){
   const op=String(req.query.op||'').toLowerCase();
+  if(op==='personnel'){const u=await requireUser(req,res,['FINANCE','ADMIN','CEO']);if(!u)return;return personnel(req,res,u,{admin:true});}
+  if(op==='business'){const u=await requireUser(req,res,['FINANCE','ADMIN','CEO']);if(!u)return;return business(req,res,u,{admin:true});}
+
 
   if(op==='bootstrap'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
@@ -68,8 +76,8 @@ async function handler(req,res){
 
   if(op==='overview'){
     const [users,academies,tournaments,regs,audit]=await Promise.all([listJson('users/',5000),listJson('academies/',2000),listJson('tournaments/',1000),listJson('registrations/',10000),listJson('audit/',3000)]);
-    const cash=paymentSummary(await listJson('payment-ledger/'),regs);
-    return res.status(200).json({ok:true,overview:{members:users.filter(x=>x.status==='ACTIVE').length,athletes:users.filter(x=>(x.roles||[]).includes('ATHLETE')).length,coaches:users.filter(x=>(x.roles||[]).includes('COACH')).length,approvedAcademies:academies.filter(x=>x.status==='APPROVED').length,pendingAcademies:academies.filter(x=>x.status==='PENDING').length,tournaments:tournaments.filter(x=>!x.deletedAt).length,registrations:regs.length,received:cash.received,refunded:cash.refunded,netReceived:cash.netReceived,legacyUnreconciled:cash.legacyUnreconciled,auditEvents:audit.length}});
+    const cash=paymentSummary(await listJson('payment-ledger/'),regs),businessLedger=await listJson('business-ledger/'),businessReceived=businessLedger.filter(e=>e.direction==='IN').reduce((n,e)=>n+e.amount,0),businessPaid=businessLedger.filter(e=>e.direction==='OUT').reduce((n,e)=>n+e.amount,0);
+    return res.status(200).json({ok:true,overview:{members:users.filter(x=>x.status==='ACTIVE').length,athletes:users.filter(x=>(x.roles||[]).includes('ATHLETE')).length,coaches:users.filter(x=>(x.roles||[]).includes('COACH')).length,approvedAcademies:academies.filter(x=>x.status==='APPROVED').length,pendingAcademies:academies.filter(x=>x.status==='PENDING').length,tournaments:tournaments.filter(x=>!x.deletedAt).length,registrations:regs.length,received:cash.received,refunded:cash.refunded,netReceived:cash.netReceived,legacyUnreconciled:cash.legacyUnreconciled,auditEvents:audit.length,businessReceived,businessPaid,totalNetCash:cash.netReceived+businessReceived-businessPaid}});
   }
 
   if(op==='tournaments'){
@@ -84,7 +92,7 @@ async function handler(req,res){
 
   if(op==='academy-status'){
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({ok:false,error:'method_not_allowed'});}
-    const b=req.body||{},id=clean(b.academyId,80),status=clean(b.status,20).toUpperCase();if(!['APPROVED','REJECTED','SUSPENDED'].includes(status))return res.status(400).json({ok:false,error:'invalid_status'});const a=await getJson('academies/'+id+'.json');if(!a)return res.status(404).json({ok:false,error:'academy_not_found'});const before={...a};a.status=status;a.joinedAt=status==='APPROVED'?(a.joinedAt||now()):a.joinedAt;a.updatedAt=now();a.reviewedBy=user.id;await putJson('academies/'+id+'.json',a);await putJson('audit/'+makeId('aud')+'.json',{actorUserId:user.id,action:'ACADEMY_STATUS',entityType:'ACADEMY',entityId:id,before,after:a,createdAt:now()},{overwrite:false});return res.status(200).json({ok:true,academy:a});
+    return reviewAcademy(req,res,user);
   }
 
   if(op==='registrations'){
@@ -198,13 +206,13 @@ async function handler(req,res){
 
   if(op==='sponsors'){
     if(req.method==='GET')return res.status(200).json({ok:true,sponsors:await listJson('sponsors/',2000)});
-    if(req.method==='POST'){const b=req.body||{},name=clean(b.name,180);if(!name)return res.status(400).json({ok:false,error:'name_required'});const id=clean(b.id,80)||makeId('spn'),prev=await getJson('sponsors/'+id+'.json'),row={id,name,category:clean(b.category,80),status:clean(b.status,30)||'LEAD',contractValue:Number(b.contractValue)||0,currency:clean(b.currency,3)||'KRW',contractStart:clean(b.contractStart,20),contractEnd:clean(b.contractEnd,20),receivable:Number(b.receivable)||0,notes:clean(b.notes,500),createdAt:prev?.createdAt||now(),updatedAt:now(),updatedBy:user.id};await putJson('sponsors/'+id+'.json',row);return res.status(prev?200:201).json({ok:true,sponsor:row});}
+    if(req.method==='POST')return saveSponsor(req,res,user);
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
 
   if(op==='content'){
     if(req.method==='GET')return res.status(200).json({ok:true,content:await listJson('content/',3000)});
-    if(req.method==='POST'){const b=req.body||{},title=clean(b.title,220);if(!title)return res.status(400).json({ok:false,error:'title_required'});const id=clean(b.id,80)||makeId('cnt'),prev=await getJson('content/'+id+'.json'),status=clean(b.status,20)||'DRAFT',row={id,type:clean(b.type,30)||'NEWS',title,summary:clean(b.summary,800),body:clean(b.body,20000),coverUrl:clean(b.coverUrl,500),status,athleteSocId:clean(b.athleteSocId,30),academyId:clean(b.academyId,80),publishedAt:status==='PUBLISHED'?(prev?.publishedAt||now()):prev?.publishedAt||null,createdAt:prev?.createdAt||now(),updatedAt:now(),updatedBy:user.id};await putJson('content/'+id+'.json',row);return res.status(prev?200:201).json({ok:true,content:row});}
+    if(req.method==='POST')return saveContent(req,res,user);
     res.setHeader('Allow','GET, POST');return res.status(405).json({ok:false,error:'method_not_allowed'});
   }
 
@@ -212,6 +220,7 @@ async function handler(req,res){
 }
 
 export default apiHandler(handler, {
+  "business":["GET","POST"],
   "service-settings": ["GET","POST"],
   "inquiries": ["GET","POST"],
   "event-archive": ["POST"],

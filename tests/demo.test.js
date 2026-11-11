@@ -25,7 +25,7 @@ const {getPool,inTransaction,closePool}=await import('../lib/database.js');
 const {putJson,getJson,hash,passwordHash}=await import('../lib/blobdb.js');
 const {DEMO_EMAIL,DEMO_PASSWORD}=await import('../lib/demo-account.js');
 const auth=(await import('../api/auth.js')).default,member=(await import('../api/member.js')).default,admin=(await import('../api/admin.js')).default;
-for(const demo of [false,true])for(const migration of ['001_operational_records.sql','002_manual_payments.sql'])await getPool({demo}).query(await readFile(new URL('../db/migrations/'+migration,import.meta.url),'utf8'));
+for(const demo of [false,true])for(const migration of ['001_operational_records.sql','002_manual_payments.sql','003_business_ledger.sql'])await getPool({demo}).query(await readFile(new URL('../db/migrations/'+migration,import.meta.url),'utf8'));
 const response=()=>({statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.statusCode=n;return this},json(body){this.body=body;return this},send(body){this.body=body;return this},end(){return this}});
 async function call(handler,op,{body={},cookie='',method='POST'}={}){const res=response();await handler({method,query:{op},body,headers:{host:'soc.test',origin:'https://soc.test','content-type':'application/json',cookie}},res);return res;}
 const cookieOf=res=>[].concat(res.headers['Set-Cookie']||[]).map(c=>c.split(';')[0]).join('; ');
@@ -70,4 +70,9 @@ test('copied demo records and sessions cannot authenticate outside the isolated 
  const records=await getPool({demo:true}).query("SELECT path,value FROM soc_records WHERE collection IN ('users','user-email','sessions')");for(const row of records.rows)await putJson(row.path,row.value);
  process.env.VERCEL_ENV='production';assert.equal((await login()).statusCode,401);
  const forged=cookie.split('; ').filter(c=>!c.startsWith('__Host-soc_demo')).join('; ');assert.equal((await call(auth,'me',{cookie:forged,method:'GET'})).body.error,'invalid_session');
+});
+test('test personas keep distinct permissions and are unavailable outside the isolated database',async()=>{
+ const {DEMO_PERSONAS}=await import('../lib/demo-account.js');
+ for(const p of DEMO_PERSONAS){const result=await call(auth,'login',{body:{email:p.email,password:DEMO_PASSWORD}});assert.equal(result.statusCode,200,JSON.stringify(result.body));const cookie=cookieOf(result);assert.deepEqual(result.body.user.roles,p.roles);assert.equal(await getJson('users/'+p.id+'.json'),null);if(!p.roles.includes('ADMIN'))assert.equal((await call(admin,'tournaments',{cookie,method:'GET'})).statusCode,403);}
+ process.env.VERCEL_ENV='production';for(const p of DEMO_PERSONAS)assert.equal((await call(auth,'login',{body:{email:p.email,password:DEMO_PASSWORD}})).statusCode,401);
 });
