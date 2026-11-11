@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-11T00:20:03.068Z",
+  "generatedAt": "2026-11-11T01:59:25.219Z",
   "source": "isolated Chromium; populated synthetic accounts; visible controls only; not proof of all mutations",
   "results": [
     {
@@ -1586,6 +1586,22 @@
         {
           "tag": "a",
           "id": "",
+          "label": "판매 상품 확인 →",
+          "href": "/business.html?kind=product",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "label": "판매 상품 확인 →",
+          "href": "/business.html?kind=product",
+          "type": null,
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "id": "",
           "label": "장비 지원안 보기 →",
           "href": "/support.html",
           "type": null,
@@ -2073,7 +2089,7 @@
           "tag": "a",
           "id": "",
           "label": "대회 안내 보기 →",
-          "href": "/competition.html?tournamentId=trn_6dc2f06b-9670-4304-bedb-29ca61a4a8da",
+          "href": "/competition.html?tournamentId=trn_77c4fb73-f00d-46c9-8c26-e9368abad7ac",
           "type": null,
           "disabled": false
         },
@@ -2081,7 +2097,7 @@
           "tag": "a",
           "id": "",
           "label": "대회 안내 보기 →",
-          "href": "/competition.html?tournamentId=trn_218fd880-caf2-40cc-91fd-1d52ceb642c6",
+          "href": "/competition.html?tournamentId=trn_d5044fbb-71a6-4059-a6c1-cba63d0ee23e",
           "type": null,
           "disabled": false
         },
@@ -3153,7 +3169,7 @@
         {
           "tag": "button",
           "id": "",
-          "label": "통합시험 대회 개최 검토P03 · 승인 · 실행 대기 · 브라우저 시험 선수trn_218fd880-caf2-40cc-91fd-1d52ceb642c6 · 2027. 3. 1. 오전 9:00:00",
+          "label": "통합시험 대회 개최 검토P03 · 승인 · 실행 대기 · 브라우저 시험 선수trn_d5044fbb-71a6-4059-a6c1-cba63d0ee23e · 2027. 3. 1. 오전 9:00:00",
           "href": null,
           "type": null,
           "disabled": false
@@ -3597,7 +3613,7 @@
         {
           "tag": "a",
           "id": "",
-          "label": "브라우저 프로 초청 모집 · 모집 중",
+          "label": "브라우저 프로 초청 모집 · 모집공고 확인",
           "href": "/business.html?kind=pro",
           "type": null,
           "disabled": false
@@ -5199,7 +5215,7 @@
         {
           "tag": "a",
           "id": "",
-          "label": "브라우저 선수지원 모집 · 모집 중",
+          "label": "브라우저 선수지원 모집 · 모집공고 확인",
           "href": "/business.html?kind=support",
           "type": null,
           "disabled": false
@@ -5565,7 +5581,7 @@
         {
           "tag": "select",
           "id": "opTournament",
-          "label": "인원 집계 시험통합시험 대회격리 브라우저 대회",
+          "label": "인원 집계 시험격리 브라우저 대회통합시험 대회",
           "href": null,
           "type": null,
           "disabled": false
@@ -5613,7 +5629,7 @@
         {
           "tag": "select",
           "id": "weighReg",
-          "label": "동명이인 · undefined · PAID동명이인 · undefined · UNPAID동명이인 · undefined · PAID동명이인 · undefined · UNPAID동명이인 · undefined · REFUNDED",
+          "label": "동명이인 · undefined · 입금 확인동명이인 · undefined · 미입금동명이인 · undefined · 입금 확인동명이인 · undefined · 미입금동명이인 · undefined · 환불 완료",
           "href": null,
           "type": null,
           "disabled": false
